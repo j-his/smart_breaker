@@ -118,7 +118,7 @@ def sample_grid_forecast_24h():
         hours.append({
             "hour": h,
             "renewable_pct": round(renewable_pct, 1),
-            "carbon_intensity": round(carbon, 1),
+            "carbon_intensity_gco2_kwh": round(carbon, 1),
             "tou_price_cents_kwh": price,
             "status": status,
         })
