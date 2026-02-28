@@ -67,6 +67,10 @@ For every task, analyze whether sub-steps can be developed in parallel:
 - Include brief notes about what was done
 - This file is the single source of truth for project status
 
+## Git Commit Rules
+- **Do NOT add a Co-Authored-By line** to commit messages. No Opus co-author tags.
+- Keep commit messages concise and descriptive.
+
 ## Git Branching Strategy
 - **Main branch:** `main` — do NOT commit directly to main
 - **Development sub-branch:** Work happens on a development sub-branch (e.g., `dev/backend`)
