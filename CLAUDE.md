@@ -19,15 +19,24 @@ https://github.com/j-his/smart_breaker
 
 **IMPORTANT:** When implementing any system, ALWAYS read the implementation plan first for exact code, test steps, and commit messages. Do not guess — the plan specifies everything.
 
+## Frontend Coordination
+A frontend teammate is developing the iOS app simultaneously. When implementing any backend component that produces data consumed by the frontend (especially WebSocket payloads, REST responses, or model output shapes), ALWAYS cross-reference:
+- **Implementation plan:** `IMPLEMENTATION_PLAN.md` (parent directory)
+- **API guide (human):** `docs/API_GUIDE.md`
+- **API spec (AI):** `docs/API_SPEC_FOR_AI.md`
+- **JSON formats:** `docs/JSON_FORMATS.md`
+
+Ensure any model output shapes or inference results align with the JSON schemas the frontend expects.
+
 ## Pre-Step Protocol: Ask Before Building
 **Before implementing EACH step**, the agent MUST:
 1. Read the step requirements from the plan
 2. Think about what's ambiguous (mechanics, edge cases, priorities)
-3. Ask the user **at least 2 clarification questions** using AskUserQuestion before writing any subplan or code
+3. Ask the user **at least 3 clarification questions** using AskUserQuestion before writing any subplan or code
 4. Wait for answers before writing any code
 5. Err on the side of asking too many questions rather than making assumptions
 
-**This is non-negotiable.** Even if a task seems straightforward, find at least 2 meaningful questions to ask. Good questions reveal hidden assumptions and prevent rework.
+**This is non-negotiable.** Even if a task seems straightforward, find at least 3 meaningful questions to ask. Good questions reveal hidden assumptions and prevent rework.
 
 ## Superpowers Skills
 **ALWAYS check and use superpowers skills before any task.** Key skills:

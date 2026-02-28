@@ -20,10 +20,10 @@
 | 4b. API docs for teammates | DONE | 3 docs (2548 lines): API_GUIDE, API_SPEC_FOR_AI, JSON_FORMATS |
 | 5. Feature engine | DONE | 53 past / 10 future / 8 static features, 3/3 tests |
 | 6. Model components (GRN/GLU/VSN) | DONE | 3 nn.Modules (GLU, GRN, VSN), 6/6 tests |
-| 7. Attention | TODO | |
-| 8. Encoder/decoder | TODO | |
-| 9. Prediction heads | TODO | |
-| 10. TFT assembly | TODO | |
+| 7. Attention | DONE | MultiHeadAttention + InterpretableAttention (shared V, averaged weights) |
+| 8. Encoder/decoder | DONE | TemporalEncoder (2 layers) + TemporalDecoder (last layer interpretable) |
+| 9. Prediction heads | DONE | 4 heads: QuantileForecast, NILM, AnomalyVAE, DayType |
+| 10. TFT assembly | DONE | Full TFT wired, 383K params (CPU), 24/24 tests passing |
 | 11. Losses | TODO | |
 | 12. Training pipeline | TODO | |
 | 13. Inference engine | TODO | |
