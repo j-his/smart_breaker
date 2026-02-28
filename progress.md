@@ -19,7 +19,7 @@
 | 4. Data generator | DONE | 86,400 rows, 173 calendar events, 8/8 tests |
 | 4b. API docs for teammates | DONE | 3 docs (2548 lines): API_GUIDE, API_SPEC_FOR_AI, JSON_FORMATS |
 | 5. Feature engine | DONE | 53 past / 10 future / 8 static features, 3/3 tests |
-| 6. Model components (GRN/GLU/VSN) | TODO | |
+| 6. Model components (GRN/GLU/VSN) | DONE | 3 nn.Modules (GLU, GRN, VSN), 6/6 tests |
 | 7. Attention | TODO | |
 | 8. Encoder/decoder | TODO | |
 | 9. Prediction heads | TODO | |
