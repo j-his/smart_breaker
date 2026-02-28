@@ -121,6 +121,7 @@ def sample_grid_forecast_24h():
             "carbon_intensity_gco2_kwh": round(carbon, 1),
             "tou_price_cents_kwh": price,
             "status": status,
+            "tou_period": "super_off_peak" if (0 <= h < 7) else ("peak" if (16 <= h < 21) else "off_peak"),
         })
     return hours
 

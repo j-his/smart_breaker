@@ -75,7 +75,7 @@ def _wind_contribution(hour: int) -> float:
 def generate_grid_snapshot(dt: datetime) -> dict:
     """Generate a grid snapshot matching the frontend GridSnapshot schema.
 
-    Returns dict with keys: current_price_cents_kwh, grid_status,
+    Returns dict with keys: tou_price_cents_kwh, status,
     renewable_pct, carbon_intensity_gco2_kwh, tou_period.
     """
     price = get_tou_price(dt)
@@ -85,8 +85,8 @@ def generate_grid_snapshot(dt: datetime) -> dict:
     carbon = round(400.0 - 3.0 * renewable_pct, 1)
 
     return {
-        "current_price_cents_kwh": price,
-        "grid_status": get_grid_status(price),
+        "tou_price_cents_kwh": price,
+        "status": get_grid_status(price),
         "renewable_pct": renewable_pct,
         "carbon_intensity_gco2_kwh": carbon,
         "tou_period": get_tou_period(dt),
@@ -114,5 +114,6 @@ def generate_24h_forecast(base_dt: datetime) -> list[dict]:
             "status": get_grid_status(price),
             "renewable_pct": renewable_pct,
             "carbon_intensity_gco2_kwh": carbon,
+            "tou_period": get_tou_period(dt),
         })
     return forecast

@@ -61,7 +61,6 @@ class TestOrchestrator:
         result = run_optimization(mixed_events)
         update = result.to_calendar_update()
 
-        expected_keys = {"type", "events", "total_savings_cents",
-                         "total_carbon_avoided_g", "confidence"}
+        expected_keys = {"optimized_events", "total_savings_cents",
+                         "total_carbon_avoided_g", "optimization_confidence"}
         assert set(update.keys()) == expected_keys
-        assert update["type"] == "calendar_update"

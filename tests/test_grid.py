@@ -40,8 +40,8 @@ class TestTOURates:
         snapshot = generate_grid_snapshot(dt)
 
         expected_keys = {
-            "current_price_cents_kwh",
-            "grid_status",
+            "tou_price_cents_kwh",
+            "status",
             "renewable_pct",
             "carbon_intensity_gco2_kwh",
             "tou_period",

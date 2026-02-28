@@ -31,11 +31,10 @@ class OptimizationResult:
     def to_calendar_update(self) -> dict:
         """Format as a WebSocket calendar_update payload."""
         return {
-            "type": "calendar_update",
-            "events": self.events,
+            "optimized_events": self.events,
             "total_savings_cents": self.total_savings_cents,
             "total_carbon_avoided_g": self.total_carbon_avoided_g,
-            "confidence": self.confidence,
+            "optimization_confidence": self.confidence,
         }
 
 
