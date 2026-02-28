@@ -24,9 +24,9 @@
 | 8. Encoder/decoder | DONE | TemporalEncoder (2 layers) + TemporalDecoder (last layer interpretable) |
 | 9. Prediction heads | DONE | 4 heads: QuantileForecast, NILM, AnomalyVAE, DayType |
 | 10. TFT assembly | DONE | Full TFT wired, 383K params (CPU), 24/24 tests passing |
-| 11. Losses | TODO | |
-| 12. Training pipeline | TODO | |
-| 13. Inference engine | TODO | |
+| 11. Losses | DONE | QuantileLoss, VAELoss, UncertaintyWeightedLoss — all verified |
+| 12. Training pipeline | DONE | TFTTrainer + train_model.py + finetune_model.py, 5.2M params GPU, 80 epochs on RTX 5070 Ti |
+| 13. Inference engine | DONE | InferenceEngine with debouncing, post-processing, real checkpoint verified |
 | 14. Grid/TOU rates | TODO | |
 | 15. Calendar parser | TODO | |
 | 16. Optimizer bridge | TODO | |
