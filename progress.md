@@ -13,10 +13,10 @@
 | Task | Status | Notes |
 |---|---|---|
 | 0. CLAUDE.md + progress.md + dev branch | DONE | Project initialized |
-| 1. Project scaffold | TODO | |
-| 2. Configuration | TODO | |
-| 3. Event bus | TODO | |
-| 4. Data generator | TODO | |
+| 1. Project scaffold | DONE | Directory structure, requirements, conftest |
+| 2. Configuration | DONE | config.py with model profiles, GPU detect, TTS flags |
+| 3. Event bus | DONE | 4/4 tests passing |
+| 4. Data generator | DONE | 86,400 rows, 173 calendar events, 8/8 tests |
 | 4b. API docs for teammates | TODO | Ship to team immediately after |
 | 5. Feature engine | TODO | |
 | 6. Model components (GRN/GLU/VSN) | TODO | |
