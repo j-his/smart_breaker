@@ -27,12 +27,12 @@
 | 11. Losses | DONE | QuantileLoss, VAELoss, UncertaintyWeightedLoss — all verified |
 | 12. Training pipeline | DONE | TFTTrainer + train_model.py + finetune_model.py, 5.2M params GPU, 80 epochs on RTX 5070 Ti |
 | 13. Inference engine | DONE | InferenceEngine with debouncing, post-processing, real checkpoint verified |
-| 14. Grid/TOU rates | TODO | |
-| 15. Calendar parser | TODO | |
-| 16. Optimizer bridge | TODO | |
-| 17. MILP optimizer | TODO | |
-| 18. Optimizer orchestrator | TODO | |
-| 19. Calendar generator | TODO | |
+| 14. Grid/TOU rates | DONE | PG&E E-TOU-C rates, CAISO solar/wind model, GridCache with TTL, 4/4 tests |
+| 15. Calendar parser | DONE | iCal + JSON parsing, appliance inference from keywords, 4/4 tests |
+| 16. Optimizer bridge | DONE | CalendarEvent ↔ MILP task dict conversion, 4/4 tests |
+| 17. MILP optimizer | DONE | OR-Tools CP-SAT, cost+carbon objective, breaker constraint, 4/4 tests |
+| 18. Optimizer orchestrator | DONE | End-to-end pipeline: grid→bridge→MILP→results, 3/3 tests |
+| 19. Calendar generator | DONE | iCal export with moved-event annotations, WS envelope, 3/3 tests |
 | 20. Ingestion layer | TODO | |
 | 21. WebSocket manager | TODO | |
 | 22. REST routes | TODO | |
