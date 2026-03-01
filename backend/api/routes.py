@@ -20,6 +20,7 @@ from backend.calendar.parser import CalendarEvent, parse_ical, parse_json_tasks,
 from backend.calendar.generator import optimized_to_ical
 from backend.optimizer.scheduler import run_optimization
 from backend.events import event_bus, SETTINGS_CHANGED, SCHEDULE_UPDATED
+from backend import config
 
 logger = logging.getLogger(__name__)
 
