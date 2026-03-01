@@ -385,6 +385,19 @@ class SettingsViewModel: ObservableObject {
         }
     }
 
+    private static let fallbackVoices: [VoiceOption] = [
+        VoiceOption(id: "JBFqnCBsd6RMkjVDRZzb", name: "George", desc: "Warm British Storyteller", gender: "male"),
+        VoiceOption(id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", desc: "Mature, Reassuring", gender: "female"),
+        VoiceOption(id: "Xb7hH8MSUJpSbSDYk0k2", name: "Alice", desc: "Clear British Educator", gender: "female"),
+        VoiceOption(id: "cjVigY5qzO86Huf0OWal", name: "Eric", desc: "Smooth, Trustworthy", gender: "male"),
+        VoiceOption(id: "cgSgspJ2msm6clMCkdW9", name: "Jessica", desc: "Playful, Bright, Warm", gender: "female"),
+        VoiceOption(id: "SAz9YHcvj6GT2YYXdXww", name: "River", desc: "Relaxed, Neutral", gender: "neutral"),
+        VoiceOption(id: "IKne3meq5aSn9XLyUdCD", name: "Charlie", desc: "Deep Australian", gender: "male"),
+        VoiceOption(id: "XrExE9yKIg1WjnnlVkGX", name: "Matilda", desc: "Professional, Knowledgeable", gender: "female"),
+        VoiceOption(id: "TX3LPaxmHKxFdv7VOQHJ", name: "Liam", desc: "Energetic, Young", gender: "male"),
+        VoiceOption(id: "CwhRBWXzGAHq8TQ4Fs17", name: "Roger", desc: "Laid-Back, Casual", gender: "male"),
+    ]
+
     func fetchVoices() async {
         isLoadingVoices = true
         do {
@@ -394,7 +407,11 @@ class SettingsViewModel: ObservableObject {
                 selectedVoiceId = response.currentVoiceId
             }
         } catch {
-            // Silently fail — voices section just won't show options
+            // Fall back to hardcoded voices
+            availableVoices = Self.fallbackVoices
+        }
+        if selectedVoiceId.isEmpty {
+            selectedVoiceId = "JBFqnCBsd6RMkjVDRZzb"
         }
         isLoadingVoices = false
     }
