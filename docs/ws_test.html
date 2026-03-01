@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EnergyAI WebSocket Test</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0a0a; color: #e0e0e0; font-family: 'Courier New', monospace; padding: 12px; }
+  h1 { text-align: center; color: #4fc3f7; margin-bottom: 12px; font-size: 1.4em; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px; height: calc(100vh - 60px); }
+  .panel { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 12px; overflow-y: auto; display: flex; flex-direction: column; }
+  .panel h2 { color: #81c784; margin-bottom: 8px; font-size: 1.1em; }
+  button { background: #2196f3; color: #fff; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 0.85em; margin: 2px; }
+  button:hover { background: #1976d2; }
+  button.disconnect { background: #f44336; }
+  button.disconnect:hover { background: #d32f2f; }
+  .status { font-size: 0.8em; padding: 4px 8px; border-radius: 4px; display: inline-block; margin-left: 8px; }
+  .status.connected { background: #1b5e20; color: #a5d6a7; }
+  .status.disconnected { background: #b71c1c; color: #ef9a9a; }
+
+  /* Power bars */
+  .channel { margin: 6px 0; }
+  .channel-label { font-size: 0.8em; color: #aaa; margin-bottom: 2px; }
+  .bar-bg { background: #333; border-radius: 4px; height: 22px; position: relative; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; min-width: 2px; }
+  .bar-text { position: absolute; right: 6px; top: 2px; font-size: 0.75em; color: #fff; }
+  .ch0 .bar-fill { background: #42a5f5; }
+  .ch1 .bar-fill { background: #66bb6a; }
+  .ch2 .bar-fill { background: #ffca28; }
+  .ch3 .bar-fill { background: #ef5350; }
+
+  /* Chat */
+  #chat-log { flex: 1; overflow-y: auto; font-size: 0.85em; margin-bottom: 8px; white-space: pre-wrap; }
+  #chat-input { width: calc(100% - 60px); padding: 6px; background: #222; color: #e0e0e0; border: 1px solid #555; border-radius: 4px; }
+
+  /* Event log */
+  .event { font-size: 0.78em; padding: 2px 0; border-bottom: 1px solid #222; }
+  .event.sensor { color: #42a5f5; }
+  .event.calendar { color: #66bb6a; }
+  .event.grid { color: #ffca28; }
+  .event.insight { color: #ce93d8; }
+  .event.error { color: #ef5350; }
+  .event.chat { color: #f48fb1; }
+
+  .total-power { font-size: 1.4em; color: #4fc3f7; text-align: center; margin: 8px 0; }
+</style>
+</head>
+<body>
+
+<h1>EnergyAI WebSocket Test</h1>
+<div class="grid">
+
+  <!-- Panel 1: Live Stream -->
+  <div class="panel">
+    <h2>Live Stream
+      <span id="live-status" class="status disconnected">disconnected</span>
+    </h2>
+    <div>
+      <button onclick="connectLive()">Connect</button>
+      <button class="disconnect" onclick="disconnectLive()">Disconnect</button>
+    </div>
+    <div class="total-power">Total: <span id="total-watts">0</span> W</div>
+    <div class="channel ch0">
+      <div class="channel-label">CH0 — Kitchen</div>
+      <div class="bar-bg"><div class="bar-fill" id="bar0" style="width:0%"></div><span class="bar-text" id="val0">0 W</span></div>
+    </div>
+    <div class="channel ch1">
+      <div class="channel-label">CH1 — Laundry</div>
+      <div class="bar-bg"><div class="bar-fill" id="bar1" style="width:0%"></div><span class="bar-text" id="val1">0 W</span></div>
+    </div>
+    <div class="channel ch2">
+      <div class="channel-label">CH2 — Garage</div>
+      <div class="bar-bg"><div class="bar-fill" id="bar2" style="width:0%"></div><span class="bar-text" id="val2">0 W</span></div>
+    </div>
+    <div class="channel ch3">
+      <div class="channel-label">CH3 — Bedroom</div>
+      <div class="bar-bg"><div class="bar-fill" id="bar3" style="width:0%"></div><span class="bar-text" id="val3">0 W</span></div>
+    </div>
+  </div>
+
+  <!-- Panel 2: Chat -->
+  <div class="panel">
+    <h2>Chat
+      <span id="chat-status" class="status disconnected">disconnected</span>
+    </h2>
+    <div id="chat-log"></div>
+    <div>
+      <input id="chat-input" placeholder="Ask EnergyAI..." onkeydown="if(event.key==='Enter')sendChat()">
+      <button onclick="sendChat()">Send</button>
+    </div>
+  </div>
+
+  <!-- Panel 3: Quick Actions -->
+  <div class="panel">
+    <h2>Quick Actions</h2>
+    <button onclick="addTask()">Add Task (Dryer)</button>
+    <button onclick="importCalendar()">Import Calendar (3 events)</button>
+    <button onclick="refreshDashboard()">Refresh Dashboard</button>
+    <button onclick="healthCheck()">Health Check</button>
+    <div id="action-result" style="margin-top:10px; font-size:0.85em; white-space:pre-wrap;"></div>
+  </div>
+
+  <!-- Panel 4: Event Log -->
+  <div class="panel">
+    <h2>Event Log</h2>
+    <div id="event-log"></div>
+  </div>
+
+</div>
+
+<script>
+const BASE = window.location.hostname === '' ? 'localhost:8000' : window.location.host;
+const HTTP = `http://${BASE}`;
+const WS_BASE = `ws://${BASE}`;
+const MAX_EVENTS = 200;
+
+let liveWs = null;
+let chatWs = null;
+
+// ── Event Log ──────────────────────────────────────────────────
+function logEvent(type, message) {
+  const el = document.getElementById('event-log');
+  const div = document.createElement('div');
+  div.className = `event ${type}`;
+  const ts = new Date().toLocaleTimeString();
+  div.textContent = `[${ts}] [${type}] ${message}`;
+  el.prepend(div);
+  while (el.children.length > MAX_EVENTS) el.removeChild(el.lastChild);
+}
+
+// ── Live WebSocket ─────────────────────────────────────────────
+function connectLive() {
+  if (liveWs && liveWs.readyState <= 1) return;
+  liveWs = new WebSocket(`${WS_BASE}/ws/live`);
+  liveWs.onopen = () => {
+    document.getElementById('live-status').className = 'status connected';
+    document.getElementById('live-status').textContent = 'connected';
+    logEvent('sensor', 'Live WebSocket connected');
+  };
+  liveWs.onclose = () => {
+    document.getElementById('live-status').className = 'status disconnected';
+    document.getElementById('live-status').textContent = 'disconnected';
+    logEvent('sensor', 'Live WebSocket closed');
+  };
+  liveWs.onmessage = (evt) => {
+    try {
+      const msg = JSON.parse(evt.data);
+      logEvent(msg.type || 'sensor', JSON.stringify(msg.data).substring(0, 120));
+      if (msg.type === 'sensor_update' && msg.data && msg.data.channels) {
+        updatePowerBars(msg.data);
+      }
+      if (msg.type === 'calendar_update') logEvent('calendar', 'Schedule updated');
+      if (msg.type === 'grid_status') logEvent('grid', `Grid: ${msg.data?.status || 'unknown'}`);
+      if (msg.type === 'insight') logEvent('insight', msg.data?.message || '');
+    } catch (e) {
+      logEvent('error', `Parse error: ${e.message}`);
+    }
+  };
+}
+
+function disconnectLive() {
+  if (liveWs) liveWs.close();
+}
+
+function updatePowerBars(d) {
+  const maxW = 5000;
+  const channels = d.channels || [];
+  let total = 0;
+  channels.forEach((ch, i) => {
+    const w = ch.current_watts || 0;
+    total += w;
+    const pct = Math.min((w / maxW) * 100, 100);
+    const bar = document.getElementById(`bar${i}`);
+    const val = document.getElementById(`val${i}`);
+    if (bar) bar.style.width = pct + '%';
+    if (val) val.textContent = Math.round(w) + ' W';
+  });
+  document.getElementById('total-watts').textContent = Math.round(total);
+}
+
+// ── Chat WebSocket ─────────────────────────────────────────────
+function connectChat() {
+  if (chatWs && chatWs.readyState <= 1) return;
+  chatWs = new WebSocket(`${WS_BASE}/ws/chat`);
+  chatWs.onopen = () => {
+    document.getElementById('chat-status').className = 'status connected';
+    document.getElementById('chat-status').textContent = 'connected';
+    logEvent('chat', 'Chat WebSocket connected');
+  };
+  chatWs.onclose = () => {
+    document.getElementById('chat-status').className = 'status disconnected';
+    document.getElementById('chat-status').textContent = 'disconnected';
+    logEvent('chat', 'Chat WebSocket closed');
+  };
+  chatWs.onmessage = (evt) => {
+    try {
+      const msg = JSON.parse(evt.data);
+      if (msg.type === 'chat_response' && msg.data) {
+        const chatLog = document.getElementById('chat-log');
+        if (msg.data.chunk) {
+          chatLog.textContent += msg.data.chunk;
+        }
+        if (msg.data.done) {
+          chatLog.textContent += '\n\n';
+          logEvent('chat', 'Response complete');
+        }
+      }
+    } catch (e) {
+      logEvent('error', `Chat parse error: ${e.message}`);
+    }
+  };
+}
+
+function sendChat() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text || !chatWs || chatWs.readyState !== 1) return;
+  const chatLog = document.getElementById('chat-log');
+  chatLog.textContent += `YOU: ${text}\nAI: `;
+  chatWs.send(JSON.stringify({ message: text }));
+  input.value = '';
+  logEvent('chat', `Sent: ${text}`);
+}
+
+// ── Quick Actions ──────────────────────────────────────────────
+async function apiCall(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(`${HTTP}${path}`, opts);
+  return await r.json();
+}
+
+function showResult(data) {
+  document.getElementById('action-result').textContent = JSON.stringify(data, null, 2);
+}
+
+async function addTask() {
+  try {
+    const res = await apiCall('POST', '/api/tasks', {
+      title: 'Run Dryer',
+      estimated_watts: 2400,
+      estimated_duration_min: 60,
+      channel_id: 1,
+      is_deferrable: true,
+      priority: 3
+    });
+    showResult(res);
+    logEvent('calendar', `Task added: ${res.status}`);
+  } catch (e) { logEvent('error', e.message); }
+}
+
+async function importCalendar() {
+  try {
+    const events = [
+      { title: 'Run Dishwasher', start: new Date(Date.now() + 3600000).toISOString(), end: new Date(Date.now() + 7200000).toISOString(), power_watts: 1200, channel_id: 0, is_deferrable: true },
+      { title: 'Charge EV', start: new Date(Date.now() + 7200000).toISOString(), end: new Date(Date.now() + 21600000).toISOString(), power_watts: 3600, channel_id: 2, is_deferrable: true },
+      { title: 'Cook Dinner', start: new Date(Date.now() + 10800000).toISOString(), end: new Date(Date.now() + 14400000).toISOString(), power_watts: 1800, channel_id: 0, is_deferrable: false }
+    ];
+    const res = await apiCall('POST', '/api/calendar/import', { json_events: events });
+    showResult(res);
+    logEvent('calendar', `Imported ${res.imported} events`);
+  } catch (e) { logEvent('error', e.message); }
+}
+
+async function refreshDashboard() {
+  try {
+    const res = await apiCall('GET', '/api/dashboard');
+    showResult(res);
+    logEvent('sensor', `Dashboard: ${Math.round(res.current_power.total)} W total`);
+  } catch (e) { logEvent('error', e.message); }
+}
+
+async function healthCheck() {
+  try {
+    const res = await apiCall('GET', '/api/health');
+    showResult(res);
+    logEvent('sensor', `Health: ${res.status}`);
+  } catch (e) { logEvent('error', e.message); }
+}
+
+// ── Auto-connect on load ───────────────────────────────────────
+window.addEventListener('load', () => {
+  connectLive();
+  connectChat();
+  logEvent('sensor', `Connecting to ${BASE}...`);
+});
+</script>
+
+</body>
+</html>
