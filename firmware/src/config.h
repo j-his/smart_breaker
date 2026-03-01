@@ -33,16 +33,10 @@ static const int CT_PINS[NUM_CHANNELS] = {CT_PIN_CH0, CT_PIN_CH1, CT_PIN_CH2, CT
 
 static const int RELAY_PINS[NUM_CHANNELS] = {RELAY_PIN_CH0, RELAY_PIN_CH1, RELAY_PIN_CH2, RELAY_PIN_CH3};
 
-// --- Button GPIOs ---
-// NOTE: CH0 & CH1 buttons TBD (GPIO 3/9 conflict with I2C)
-// Using placeholder values — resolve when wiring
-#define BUTTON_PIN_CH0 0   // TBD — placeholder
-#define BUTTON_PIN_CH1 0   // TBD — placeholder
-#define BUTTON_PIN_CH2 20
-#define BUTTON_PIN_CH3 38
-
-static const int BUTTON_PINS[NUM_CHANNELS] = {BUTTON_PIN_CH0, BUTTON_PIN_CH1, BUTTON_PIN_CH2, BUTTON_PIN_CH3};
-
+// --- Buttons via PCF8574 I2C GPIO Expander ---
+// All 4 buttons are read over I2C instead of direct GPIO.
+// Buttons wired to P0-P3 on PCF8574 (active LOW, internal pull-up).
+#define PCF8574_ADDR 0x20
 #define BUTTON_DEBOUNCE_MS 50
 
 // --- I2C (TCA9548A Mux for OLEDs) ---

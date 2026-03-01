@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 
 // Set WiFi credentials (from BLE write)
 void wifi_set_ssid(const char* ssid);

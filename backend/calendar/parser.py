@@ -28,6 +28,7 @@ class CalendarEvent:
     power_watts: int = 0
     is_deferrable: bool = False
     priority: str = "medium"
+    appliance_name: str | None = None
 
     @property
     def duration_min(self) -> int:
@@ -72,9 +73,10 @@ def _guess_appliance(title: str) -> str | None:
 
 
 def _apply_appliance_defaults(event: CalendarEvent) -> CalendarEvent:
-    """Fill in power_watts and is_deferrable from config if not already set."""
+    """Fill in power_watts, is_deferrable, and appliance_name from config."""
     appliance = _guess_appliance(event.title)
     if appliance:
+        event.appliance_name = appliance
         if event.power_watts == 0:
             event.power_watts = config.APPLIANCE_WATTS.get(appliance, 0)
         event.is_deferrable = appliance in config.DEFERRABLE_APPLIANCES
@@ -134,6 +136,7 @@ def parse_json_tasks(tasks: list[dict]) -> list[CalendarEvent]:
             power_watts=t.get("power_watts", 0),
             is_deferrable=t.get("is_deferrable", False),
             priority=t.get("priority", "medium"),
+            appliance_name=t.get("appliance_name"),
         )
         # Only apply defaults if power wasn't explicitly provided
         if event.power_watts == 0:

@@ -44,6 +44,7 @@ def run_optimization(
     alpha: float = config.DEFAULT_ALPHA,
     beta: float = config.DEFAULT_BETA,
     max_kw: float = config.MAX_BREAKER_KW,
+    user_patterns: list[dict] | None = None,
 ) -> OptimizationResult:
     """Run the full optimization pipeline.
 
@@ -68,7 +69,8 @@ def run_optimization(
 
     # Step 4: MILP
     optimizer_results = optimize_schedule(
-        tasks, grid_forecast, alpha=alpha, beta=beta, max_kw=max_kw
+        tasks, grid_forecast, alpha=alpha, beta=beta, max_kw=max_kw,
+        user_patterns=user_patterns,
     )
 
     # Step 5: results → OptimizedEvent dicts

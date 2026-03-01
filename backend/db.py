@@ -51,6 +51,15 @@ CREATE TABLE IF NOT EXISTS settings (
     value TEXT
 );
 
+CREATE TABLE IF NOT EXISTS user_patterns (
+    channel_id INTEGER NOT NULL,
+    day_type TEXT NOT NULL,
+    hour INTEGER NOT NULL,
+    avg_watts REAL NOT NULL DEFAULT 0.0,
+    sample_count INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (channel_id, day_type, hour)
+);
+
 CREATE INDEX IF NOT EXISTS idx_sensor_ts ON sensor_log(timestamp);
 CREATE INDEX IF NOT EXISTS idx_opt_ts ON optimization_log(timestamp);
 """
@@ -135,5 +144,46 @@ async def get_optimization_history(limit: int = 50) -> list[dict]:
             "FROM optimization_log ORDER BY timestamp DESC LIMIT ?",
             (limit,),
         )
+        rows = await cursor.fetchall()
+        return [dict(r) for r in rows]
+
+
+# ── User Behavior Patterns ─────────────────────────────────────────────────
+
+async def update_user_pattern(
+    channel_id: int, day_type: str, hour: int, watts: float,
+    ema_alpha: float = 0.3,
+) -> None:
+    """Update EMA for a (channel, day_type, hour) slot.
+
+    new_avg = alpha * watts + (1 - alpha) * old_avg
+    """
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        await db.execute(
+            """INSERT INTO user_patterns (channel_id, day_type, hour, avg_watts, sample_count)
+               VALUES (?, ?, ?, ?, 1)
+               ON CONFLICT(channel_id, day_type, hour)
+               DO UPDATE SET
+                   avg_watts = ? * ? + (1 - ?) * avg_watts,
+                   sample_count = sample_count + 1""",
+            (channel_id, day_type, hour, watts,
+             ema_alpha, watts, ema_alpha),
+        )
+        await db.commit()
+
+
+async def get_user_patterns(day_type: str | None = None) -> list[dict]:
+    """Return user pattern rows, optionally filtered by day_type."""
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        db.row_factory = aiosqlite.Row
+        if day_type:
+            cursor = await db.execute(
+                "SELECT * FROM user_patterns WHERE day_type = ? ORDER BY channel_id, hour",
+                (day_type,),
+            )
+        else:
+            cursor = await db.execute(
+                "SELECT * FROM user_patterns ORDER BY channel_id, hour",
+            )
         rows = await cursor.fetchall()
         return [dict(r) for r in rows]

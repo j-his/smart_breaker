@@ -119,8 +119,8 @@ GRID_CACHE_TTL_S = 300  # 5 minutes
 # ── LLM (Groq) ──────────────────────────────────────────────────────────────
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"
-LLM_CHAT_MODEL = os.getenv("LLM_CHAT_MODEL", "gpt-oss-120b")
-LLM_NARRATOR_MODEL = os.getenv("LLM_NARRATOR_MODEL", "gpt-oss-20b")
+LLM_CHAT_MODEL = os.getenv("LLM_CHAT_MODEL", "openai/gpt-oss-120b")
+LLM_NARRATOR_MODEL = os.getenv("LLM_NARRATOR_MODEL", "openai/gpt-oss-20b")
 LLM_MAX_CONTEXT_TOKENS = 8000
 LLM_CACHE_TTL_S = 60
 
@@ -139,7 +139,7 @@ DEFAULT_BETA = 0.5                # carbon weight
 MONTE_CARLO_ITERATIONS = 100
 
 # ── Inference ────────────────────────────────────────────────────────────────
-INFERENCE_DEBOUNCE_S = 15  # don't run inference more often than this
+INFERENCE_DEBOUNCE_S = 120  # run inference every 2 minutes
 
 # ── WebSocket ────────────────────────────────────────────────────────────────
 WS_HEARTBEAT_S = 30
@@ -176,3 +176,16 @@ APPLIANCE_WATTS = {
 # ── Appliance Deferrability Defaults ─────────────────────────────────────────
 DEFERRABLE_APPLIANCES = {"dryer", "ev_charger", "dishwasher", "water_heater"}
 NON_DEFERRABLE_APPLIANCES = {"inductive_stove", "oven", "air_conditioning", "lighting"}
+
+# ── Appliance Scheduling Windows (hour-of-day bounds) ────────────────────────
+# (earliest_hour, latest_end_hour) — optimizer won't schedule outside these
+APPLIANCE_TIME_WINDOWS: dict[str, tuple[int, int]] = {
+    "dryer": (7, 22),            # 7am - 10pm
+    "ev_charger": (0, 24),       # anytime (overnight charging is fine)
+    "dishwasher": (7, 23),       # 7am - 11pm
+    "water_heater": (5, 23),     # 5am - 11pm
+    "inductive_stove": (6, 21),  # 6am - 9pm (non-deferrable, reference only)
+    "oven": (6, 21),             # 6am - 9pm (non-deferrable, reference only)
+    "air_conditioning": (6, 23), # 6am - 11pm (non-deferrable, reference only)
+    "lighting": (6, 24),         # 6am - midnight (non-deferrable, reference only)
+}

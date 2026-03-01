@@ -21,6 +21,7 @@ def optimized_to_ical(events: list[dict]) -> str:
     cal = Calendar()
     cal.add("prodid", "-//EnergyAI//Optimized Schedule//EN")
     cal.add("version", "2.0")
+    cal.add("x-wr-calname", "EnergyAI Schedule")
 
     for evt in events:
         vevent = Event()

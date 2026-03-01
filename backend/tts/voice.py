@@ -32,7 +32,7 @@ async def text_to_speech_stream(
     Each chunk is base64-encoded for safe WebSocket text transport.
     """
     client = get_tts_client()
-    audio_stream = await client.text_to_speech.convert(
+    audio_stream = client.text_to_speech.convert(
         voice_id=config.ELEVENLABS_VOICE_ID,
         text=text,
         model_id=config.ELEVENLABS_MODEL_ID,

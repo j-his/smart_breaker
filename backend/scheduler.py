@@ -21,6 +21,8 @@ async def optimization_loop():
     """Re-run optimizer periodically when calendar events exist."""
     from backend.optimizer.montecarlo import monte_carlo_confidence
     from backend.calendar.optimizer_bridge import events_to_optimizer_tasks
+    from backend.db import get_user_patterns
+    from backend.ml.orchestrator import get_latest_result
 
     while True:
         await asyncio.sleep(config.OPTIMIZER_RERUN_INTERVAL_S)
@@ -32,10 +34,19 @@ async def optimization_loop():
                 # Fetch live grid forecast
                 forecast = await grid_cache.get_forecast()
 
+                # Fetch user behavior patterns for current day type
+                patterns = []
+                try:
+                    ml_result = get_latest_result()
+                    if ml_result and ml_result.get("day_type"):
+                        patterns = await get_user_patterns(ml_result["day_type"])
+                except Exception:
+                    logger.debug("Pattern fetch failed", exc_info=True)
+
                 # Run MILP in executor to avoid blocking the event loop
                 loop = asyncio.get_event_loop()
                 update = await loop.run_in_executor(
-                    None, _run_and_cache_optimization, forecast
+                    None, _run_and_cache_optimization, forecast, patterns
                 )
 
                 # Run Monte Carlo for real confidence score

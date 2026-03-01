@@ -5,6 +5,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from backend.api.websocket import ws_manager, make_envelope
@@ -15,7 +16,8 @@ from backend.ingestion.receiver import (
     process_sensor_reading,
 )
 from backend.ingestion.validator import SensorReading
-from backend.calendar.parser import CalendarEvent, parse_ical, parse_json_tasks
+from backend.calendar.parser import CalendarEvent, parse_ical, parse_json_tasks, _apply_appliance_defaults
+from backend.calendar.generator import optimized_to_ical
 from backend.optimizer.scheduler import run_optimization
 from backend.events import event_bus, SETTINGS_CHANGED, SCHEDULE_UPDATED
 
@@ -59,7 +61,10 @@ _state: dict = {
 
 # ── Helper ───────────────────────────────────────────────────────────────────
 
-def _run_and_cache_optimization(grid_forecast: list[dict] | None = None) -> dict:
+def _run_and_cache_optimization(
+    grid_forecast: list[dict] | None = None,
+    user_patterns: list[dict] | None = None,
+) -> dict:
     """Re-run optimizer with current state and cache the result."""
     if not _state["calendar_events"]:
         return _empty_optimization()
@@ -69,6 +74,7 @@ def _run_and_cache_optimization(grid_forecast: list[dict] | None = None) -> dict
         grid_forecast=grid_forecast,
         alpha=_state["alpha"],
         beta=_state["beta"],
+        user_patterns=user_patterns,
     )
     update = result.to_calendar_update()
     _state["last_optimization"] = update
@@ -159,6 +165,7 @@ async def add_task(task: TaskRequest):
         is_deferrable=task.is_deferrable,
         priority=task.priority,
     )
+    _apply_appliance_defaults(event)
     _state["calendar_events"].append(event)
 
     try:
@@ -247,3 +254,31 @@ async def get_attention():
     except ImportError:
         pass
     return {"attention_weights": [], "message": "No ML data yet"}
+
+
+@api_router.get("/calendar.ics")
+async def calendar_ics():
+    """Subscribable iCal feed of the optimized schedule.
+
+    iOS: Settings -> Calendar -> Accounts -> Add Subscribed Calendar
+    URL: http://<server-ip>:8000/api/calendar.ics
+    """
+    opt = _state["last_optimization"]
+    if not opt or not opt.get("optimized_events"):
+        ics_content = (
+            "BEGIN:VCALENDAR\r\n"
+            "PRODID:-//EnergyAI//Optimized Schedule//EN\r\n"
+            "VERSION:2.0\r\n"
+            "X-WR-CALNAME:EnergyAI Schedule\r\n"
+            "END:VCALENDAR\r\n"
+        )
+    else:
+        ics_content = optimized_to_ical(opt["optimized_events"])
+
+    return Response(
+        content=ics_content,
+        media_type="text/calendar",
+        headers={
+            "Content-Disposition": 'attachment; filename="energyai.ics"',
+        },
+    )

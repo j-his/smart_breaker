@@ -15,6 +15,7 @@ from backend import config
 from backend.config import get_model_config, TRAIN
 from backend.events import event_bus, ML_INFERENCE_COMPLETE, ANOMALY_DETECTED
 from backend.api.websocket import ws_manager, make_envelope
+from backend.db import update_user_pattern
 from backend.ml.feature_engine import FeatureEngine
 from backend.ml.inference import InferenceEngine
 
@@ -89,6 +90,18 @@ async def run_inference(
         "forecast_p50": forecast_p50.tolist(),
     }
     _latest_result = serializable
+
+    # Track user behavior patterns (lightweight EMA per channel/hour)
+    try:
+        current_hour = now.hour
+        day_type = result["day_type"]
+        if buffer_window is not None and len(buffer_window) > 0:
+            latest_reading = buffer_window[-1]
+            for ch in range(min(4, len(latest_reading))):
+                ch_watts = float(latest_reading[ch])
+                await update_user_pattern(ch, day_type, current_hour, ch_watts)
+    except Exception:
+        logger.debug("Pattern update failed", exc_info=True)
 
     # Publish events
     await event_bus.publish(ML_INFERENCE_COMPLETE, serializable)

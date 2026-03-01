@@ -18,6 +18,7 @@ def optimize_schedule(
     alpha: float = config.DEFAULT_ALPHA,
     beta: float = config.DEFAULT_BETA,
     max_kw: float = config.MAX_BREAKER_KW,
+    user_patterns: list[dict] | None = None,
 ) -> list[dict]:
     """Run MILP optimization over task schedule.
 
@@ -108,6 +109,27 @@ def optimize_schedule(
             combined = int((cost_score + carbon_score) * scale)
 
             objective_terms.append(x[(i, h)] * combined)
+
+    # ── Pattern penalty: prefer hours where user is less active on channel ──
+    pattern_by_ch_hour: dict[tuple[int, int], float] = {}
+    if user_patterns:
+        for p in user_patterns:
+            pattern_by_ch_hour[(p["channel_id"], p["hour"])] = p["avg_watts"]
+
+    if pattern_by_ch_hour:
+        PATTERN_WEIGHT = 0.1
+        for i, task in enumerate(deferrable):
+            earliest = task["earliest_start_hour"]
+            latest = min(task["deadline_hour"] - task["duration_hours"],
+                         horizon - task["duration_hours"])
+            ch = task.get("channel_id")
+            if ch is None:
+                continue
+            for h in range(earliest, latest + 1):
+                usage = pattern_by_ch_hour.get((ch, h % 24), 0)
+                penalty = int(PATTERN_WEIGHT * usage / 100.0 * scale)
+                if penalty > 0:
+                    objective_terms.append(x[(i, h)] * penalty)
 
     if objective_terms:
         model.minimize(sum(objective_terms))

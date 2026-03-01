@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from backend.calendar.parser import CalendarEvent
+from backend.config import APPLIANCE_TIME_WINDOWS
 
 
 def events_to_optimizer_tasks(
@@ -19,6 +20,9 @@ def events_to_optimizer_tasks(
 
     Each task dict has: id, title, channel_id, power_watts, duration_min,
     duration_hours, original_start_hour, earliest_start_hour, deadline_hour.
+
+    Deferrable tasks are clamped to appliance time windows so the solver
+    never schedules, e.g., a dryer run at 3 AM.
     """
     tasks = []
     for event in events:
@@ -31,6 +35,25 @@ def events_to_optimizer_tasks(
         if event.is_deferrable:
             earliest_start_hour = 0
             deadline_hour = min(original_start_hour + duration_hours + 12, 48)
+
+            # Clamp to appliance time window (e.g., dryer only 7am-10pm)
+            if event.appliance_name and event.appliance_name in APPLIANCE_TIME_WINDOWS:
+                win_start, win_end = APPLIANCE_TIME_WINDOWS[event.appliance_name]
+                # Clamp earliest to today's window start
+                earliest_start_hour = max(earliest_start_hour, win_start)
+                # Clamp deadline to today's window end first;
+                # if that's too tight, allow tomorrow's window
+                today_end = win_end
+                tomorrow_end = 24 + win_end
+                if deadline_hour <= today_end or today_end - earliest_start_hour >= duration_hours:
+                    deadline_hour = min(deadline_hour, today_end)
+                else:
+                    # Task can't fit today — push to tomorrow's window
+                    earliest_start_hour = 24 + win_start
+                    deadline_hour = min(deadline_hour, tomorrow_end)
+                # Safety: ensure there's room for the task
+                if deadline_hour - earliest_start_hour < duration_hours:
+                    deadline_hour = earliest_start_hour + duration_hours
         else:
             earliest_start_hour = original_start_hour
             deadline_hour = original_start_hour + duration_hours

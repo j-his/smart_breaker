@@ -79,16 +79,18 @@ Connection timeout: 15 seconds. Auto-reconnect delay: 5 seconds.
 
 HIGH = relay ON, LOW = relay OFF. All relays initialize to ON at startup.
 
-### Button Inputs (Digital, INPUT_PULLUP)
+### Button Inputs (via PCF8574 I2C GPIO Expander)
 
-| Channel | GPIO | Status |
-|---------|------|--------|
-| CH0 | **TBD** | See conflict note below |
-| CH1 | **TBD** | See conflict note below |
-| CH2 | 20 | Ready |
-| CH3 | 38 | Ready |
+All 4 buttons are read over I2C through a PCF8574 expander at address `0x20`.
 
-Debounce: 50 ms (software). Buttons use FALLING-edge interrupts.
+| Channel | PCF8574 Pin | Wiring |
+|---------|-------------|--------|
+| CH0 | P0 | Active LOW, internal pull-up |
+| CH1 | P1 | Active LOW, internal pull-up |
+| CH2 | P2 | Active LOW, internal pull-up |
+| CH3 | P3 | Active LOW, internal pull-up |
+
+The PCF8574 sits on the same I2C bus as the TCA9548A and OLEDs (SDA=GPIO 3, SCL=GPIO 9). Debounce: 50 ms (software polling in main loop at 10 ms intervals).
 
 ### I2C Bus (OLEDs + Multiplexer)
 
@@ -116,11 +118,10 @@ Model: GDEY0213B74 (2.13" B/W, 250x122 px). Power pin controls display on/off (p
 ### Complete Pin Summary
 
 ```
-GPIO 0  — (reserved, do not use for buttons)
-GPIO 3  — I2C SDA
+GPIO 3  — I2C SDA (OLEDs + TCA9548A + PCF8574)
 GPIO 7  — E-ink POWER
 GPIO 8  — CT CH0 (analog)
-GPIO 9  — I2C SCL
+GPIO 9  — I2C SCL (OLEDs + TCA9548A + PCF8574)
 GPIO 11 — E-ink CLK
 GPIO 12 — E-ink MOSI
 GPIO 14 — CT CH1 (analog)
@@ -129,13 +130,16 @@ GPIO 16 — CT CH2 (analog)
 GPIO 17 — RELAY CH1
 GPIO 18 — CT CH3 (analog)
 GPIO 19 — RELAY CH2
-GPIO 20 — BUTTON CH2
 GPIO 21 — RELAY CH0
-GPIO 38 — BUTTON CH3
 GPIO 45 — E-ink RST
 GPIO 46 — E-ink DC
 GPIO 47 — E-ink CS
 GPIO 48 — E-ink BUSY
+
+I2C devices:
+  0x20 — PCF8574 (4x buttons on P0-P3)
+  0x3C — SSD1306 OLEDs (via TCA9548A channels 0-3)
+  0x70 — TCA9548A multiplexer
 ```
 
 ---

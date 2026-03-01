@@ -193,6 +193,18 @@ struct SettingsView: View {
                     }
                 }
 
+                Section("Calendar Sync") {
+                    Button {
+                        viewModel.subscribeToCalendar()
+                    } label: {
+                        Label("Add to iPhone Calendar", systemImage: "calendar.badge.plus")
+                    }
+
+                    Text("Adds your optimized energy schedule as a subscribed calendar that updates automatically.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 Section("Notifications") {
                     Toggle("Anomaly Alerts", isOn: $viewModel.anomalyAlertsEnabled)
                     Toggle("Grid Status Changes", isOn: $viewModel.gridStatusAlertsEnabled)
@@ -315,6 +327,18 @@ class SettingsViewModel: ObservableObject {
         } catch {
             isConnected = false
             connectionTestResult = error.localizedDescription
+        }
+    }
+
+    func subscribeToCalendar() {
+        // Convert http(s):// to webcal:// and append the .ics path
+        var base = serverURL
+            .replacingOccurrences(of: "https://", with: "webcal://")
+            .replacingOccurrences(of: "http://", with: "webcal://")
+        if base.hasSuffix("/") { base.removeLast() }
+        let webcalURL = base + "/api/calendar.ics"
+        if let url = URL(string: webcalURL) {
+            UIApplication.shared.open(url)
         }
     }
 
