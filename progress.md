@@ -51,6 +51,10 @@
 | 34. Database layer | DONE | 4/4 tests, aiosqlite with 4 tables + init_db in lifespan |
 | 35. Smoke test script | DONE | 9/9 endpoint tests via httpx, field names corrected from plan |
 | 36. Run all tests | DONE | 103/103 tests passing, no circular imports |
+| 37. Wire DB logging | DONE | log_sensor_reading in receiver, log_optimization in scheduler, log_insight in narrator |
+| 38. WattTime API integration | DONE | Async client with token caching, GridCache hybrid (WattTime carbon + local TOU), 4/4 tests |
+| 39. Hardware-compatible sensor model | DONE | Optional zone/appliance with config defaults, power_watts field, 2/2 tests |
+| 40. Backend 100% verification | DONE | 109/109 tests passing, WattTime live, hardware-ready |
 
 ## Checklists
 
