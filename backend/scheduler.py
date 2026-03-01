@@ -7,6 +7,7 @@ import logging
 from backend import config
 from backend.api.websocket import ws_manager, make_envelope
 from backend.api.routes import _state, _run_and_cache_optimization
+from backend.db import log_optimization
 from backend.ingestion.receiver import grid_cache
 
 logger = logging.getLogger(__name__)
@@ -21,6 +22,10 @@ async def optimization_loop():
                 logger.info("Background optimization triggered (%d events)",
                             len(_state["calendar_events"]))
                 update = _run_and_cache_optimization()
+                try:
+                    await log_optimization(update)
+                except Exception:
+                    logger.debug("DB optimization log failed", exc_info=True)
                 await ws_manager.broadcast(make_envelope("calendar_update", update))
         except Exception as e:
             logger.error("Optimization loop error: %s", e)
@@ -32,7 +37,7 @@ async def grid_refresh_loop():
         await asyncio.sleep(config.GRID_CACHE_TTL_S)
         try:
             grid_cache.invalidate()
-            grid_data = grid_cache.get_current()
+            grid_data = await grid_cache.get_current()
             await ws_manager.broadcast(make_envelope("grid_status", grid_data))
             logger.debug("Grid cache refreshed")
         except Exception as e:

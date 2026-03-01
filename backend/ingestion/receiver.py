@@ -1,6 +1,7 @@
 """Sensor data receiver — validates, buffers, and publishes sensor readings."""
 import logging
 
+from backend.db import log_sensor_reading
 from backend.events import event_bus, SENSOR_READING
 from backend.grid.cache import GridCache
 from backend.ingestion.validator import SensorReading
@@ -36,7 +37,7 @@ async def process_sensor_reading(
     # Build feature vector for ML buffer
     watts = reading.to_watts_list()
     total = sum(watts)
-    grid = grid_cache.get_current()
+    grid = await grid_cache.get_current()
     feature_vector = watts + [
         total,
         grid.get("renewable_pct", 0),
@@ -44,6 +45,11 @@ async def process_sensor_reading(
         grid.get("tou_price_cents_kwh", 0),
     ]
     sensor_buffer.add(feature_vector)
+
+    try:
+        await log_sensor_reading(watts, simulated=simulated)
+    except Exception:
+        logger.debug("DB sensor log failed", exc_info=True)
 
     # Publish event for other subsystems
     await event_bus.publish(SENSOR_READING, {

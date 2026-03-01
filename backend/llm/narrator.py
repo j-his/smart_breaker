@@ -10,6 +10,7 @@ import uuid
 
 from backend import config
 from backend.api.websocket import ws_manager, make_envelope
+from backend.db import log_insight
 from backend.events import Event
 from backend.llm.chat import chat_completion
 
@@ -121,9 +122,14 @@ async def _generate_insight(
 
 
 async def _broadcast_and_speak(insight: dict) -> None:
-    """Broadcast insight via WebSocket, then trigger TTS if enabled."""
+    """Broadcast insight via WebSocket, persist to DB, then trigger TTS if enabled."""
     await ws_manager.broadcast(make_envelope("insight", insight))
     logger.info("Narrator insight [%s]: %s", insight["category"], insight["message"][:80])
+
+    try:
+        await log_insight(insight["message"], insight["category"], insight["severity"])
+    except Exception:
+        logger.debug("DB insight log failed", exc_info=True)
 
     # Lazy import to avoid circular dependency between llm/ and tts/
     if config.ELEVENLABS_TTS_ENABLED and config.ELEVENLABS_API_KEY:
