@@ -1,6 +1,15 @@
+# Python
 __pycache__/
 *.pyc
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# Environment
 .env
+
+# Data / Models
 *.pt
 *.pth
 data/*.parquet
@@ -8,7 +17,11 @@ data/*.json
 data/*.ics
 data/calendars/
 data/energyai.db
-.pytest_cache/
-*.egg-info/
-dist/
-build/
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Xcode
+*.xcuserdata/
+xcuserdata/
