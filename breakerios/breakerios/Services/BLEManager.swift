@@ -91,14 +91,18 @@ class BLEManager: NSObject, ObservableObject {
     func sendWiFiCredentials(ssid: String, password: String) {
         guard let peripheral = connectedPeripheral else { return }
 
-        if let ssidChar = characteristics[Self.wifiSSIDCharUUID],
-           let ssidData = ssid.data(using: .utf8) {
-            peripheral.writeValue(ssidData, for: ssidChar, type: .withResponse)
-        }
-
+        // Send password FIRST — the ESP32 calls connectToWiFi() on each
+        // write, and it only attempts connection when SSID is non-empty.
+        // Sending password first ensures it's stored before the SSID
+        // write triggers the actual WiFi.begin().
         if let passChar = characteristics[Self.wifiPasswordCharUUID],
            let passData = password.data(using: .utf8) {
             peripheral.writeValue(passData, for: passChar, type: .withResponse)
+        }
+
+        if let ssidChar = characteristics[Self.wifiSSIDCharUUID],
+           let ssidData = ssid.data(using: .utf8) {
+            peripheral.writeValue(ssidData, for: ssidChar, type: .withResponse)
         }
     }
 
