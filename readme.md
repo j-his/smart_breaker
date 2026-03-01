@@ -1,24 +1,30 @@
-# EnergyAI Smart Breaker
+# Save Box
 
-Real-time home energy monitoring and optimization system built for Hack for Humanity 2026. Three-brain AI architecture: ML forecasting, LLM explanations, and voice narration — all connected to physical hardware via an ESP32-S3 smart breaker.
+> Created by Team Noise Floor
+>
+> Hack for Humanity 2026
+
+---
+
+Save Box is a smart, AI-enabled breaker box that allows users to plan, manage, and control their household energy usage. Three-brain AI architecture: ML forecasting, LLM explanations, and voice narration — all connected to physical hardware via an ESP32-S3 smart breaker.
 
 ## Architecture
 
 ```
 ESP32-S3 (CT clamps, relays, OLEDs, e-ink)
-    │
-    ├── BLE ──► iOS App (SwiftUI)
-    │              ├── Device monitoring
-    │              ├── Calendar optimization
-    │              ├── AI insights + chat
-    │              └── Home screen widget
-    │
-    └── HTTP POST ──► FastAPI Backend
-                        ├── Brain 1: TFT model (5.2M params) — forecasting + anomaly detection
-                        ├── Brain 2: Groq LLM — natural language explanations + chat
-                        ├── Brain 3: ElevenLabs TTS — voice narration
-                        ├── OR-Tools MILP optimizer — schedule optimization
-                        └── WebSocket streaming ──► iOS App
+    |
+    |-- BLE --> iOS App (SwiftUI)
+    |              |-- Device monitoring
+    |              |-- Calendar optimization
+    |              |-- AI insights + chat
+    |              +-- Home screen widget
+    |
+    +-- HTTP POST --> FastAPI Backend
+                        |-- Brain 1: TFT model (5.2M params) -- forecasting + anomaly detection
+                        |-- Brain 2: Groq LLM -- natural language explanations + chat
+                        |-- Brain 3: ElevenLabs TTS -- voice narration
+                        |-- OR-Tools MILP optimizer -- schedule optimization
+                        +-- WebSocket streaming --> iOS App
 ```
 
 ## Quick Start
@@ -130,28 +136,31 @@ python scripts/smoke_test.py
 # Open docs/ws_test.html in a browser
 ```
 
-## Project Structure
+## Repository Structure
 
 ```
 smart_breaker/
-├── backend/                 # Python FastAPI backend
-│   ├── ml/                  # TFT model, inference, training
-│   ├── llm/                 # Groq chat, narrator, context
-│   ├── tts/                 # ElevenLabs voice streaming
-│   ├── optimizer/           # OR-Tools MILP scheduler
-│   ├── ingestion/           # Sensor data + grid status
-│   ├── routes/              # REST + WebSocket endpoints
-│   └── config.py            # All configuration
-├── breakerios/              # iOS SwiftUI app
-│   └── breakerios/
-│       ├── Services/        # BLE, WebSocket, API, TTS
-│       ├── Components/      # Reusable UI components
-│       └── *.swift          # Views + Models
-├── firmware/                # ESP32-S3 PlatformIO project
-│   └── src/                 # BLE, WiFi, CT reader, relays, displays
-├── scripts/                 # Training + smoke test scripts
-├── docs/                    # API docs, WS test page
-└── tests/                   # Backend pytest suite
+|-- backend/                 # Python FastAPI backend
+|   |-- ml/                  # TFT model, inference, training
+|   |-- llm/                 # Groq chat, narrator, context
+|   |-- tts/                 # ElevenLabs voice streaming
+|   |-- optimizer/           # OR-Tools MILP scheduler
+|   |-- ingestion/           # Sensor data + grid status
+|   |-- routes/              # REST + WebSocket endpoints
+|   +-- config.py            # All configuration
+|-- breakerios/              # iOS SwiftUI app
+|   +-- breakerios/
+|       |-- Services/        # BLE, WebSocket, API, TTS
+|       |-- Components/      # Reusable UI components
+|       +-- *.swift          # Views + Models
+|-- cad/                     # Autodesk Inventor enclosure
+|-- firmware/                # ESP32-S3 PlatformIO project
+|   +-- src/                 # BLE, WiFi, CT reader, relays, displays
+|-- animation/               # Blender assets for promotional materials
+|-- data/                    # SQLite backend database
+|-- scripts/                 # Training + smoke test scripts
+|-- docs/                    # API docs, WS test page
++-- tests/                   # Backend pytest suite
 ```
 
 ## API Endpoints
@@ -171,6 +180,8 @@ smart_breaker/
 | WS | /ws/live | Real-time sensor + grid + insight stream |
 | WS | /ws/chat | AI chat with streaming responses |
 
-## License
+---
 
-Built for Hack for Humanity 2026.
+(c) 2026
+
+Proudly designed, manufactured, and assembled by Noise Floor in California
