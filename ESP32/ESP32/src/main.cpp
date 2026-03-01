@@ -44,8 +44,11 @@ unsigned long debounceDelay = 50;
 
 volatile bool needEpdUpdate = false;
 
-const int relayX[4] = {361, 461, 361, 261};
-const int relayY[4] = {181, 101, 21,  101};
+// 4 blocks distributed horizontally across the 792 pixel width
+// 792 / 4 = 198 pixels per block. 
+// Center of each block for a 70px square is: (198 - 70) / 2 = 64
+const int relayX[4] = {64, 262, 460, 658};
+const int relayY[4] = {101, 101, 101, 101};
 
 // --------- CT Parameters ----------
 const float BURDEN = 100.0;     // ohms
