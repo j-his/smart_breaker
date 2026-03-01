@@ -23,10 +23,7 @@ async def on_schedule_updated(event: Event) -> None:
     optimized = data.get("optimized_events", [])
 
     # Find tasks that were actually moved
-    moved = [
-        e for e in optimized
-        if e.get("optimized_start_hour") != e.get("original_start_hour")
-    ]
+    moved = [e for e in optimized if e.get("was_moved")]
 
     if not moved:
         logger.debug("Schedule updated but no tasks were moved, skipping insight")
