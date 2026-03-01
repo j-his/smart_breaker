@@ -202,14 +202,20 @@ async def ws_chat(websocket: WebSocket):
             )
 
             # Speak the response aloud if narration is enabled
-            if _state.get("narration_enabled", True) and full_text.strip():
+            narration_on = _state.get("narration_enabled", True)
+            has_text = bool(full_text.strip())
+            logger.info("Chat TTS check: narration=%s, has_text=%s, text_len=%d",
+                        narration_on, has_text, len(full_text))
+            if narration_on and has_text:
                 try:
                     import uuid
                     from backend.tts.voice import speak_to_client
                     msg_id = str(uuid.uuid4())[:8]
+                    logger.info("Chat TTS: sending %d chars to ElevenLabs (id=%s)", len(full_text), msg_id)
                     await speak_to_client(full_text, websocket, msg_id)
+                    logger.info("Chat TTS: complete for id=%s", msg_id)
                 except Exception:
-                    logger.debug("Chat TTS failed", exc_info=True)
+                    logger.error("Chat TTS failed", exc_info=True)
 
     except WebSocketDisconnect:
         await ws_manager.disconnect(websocket)

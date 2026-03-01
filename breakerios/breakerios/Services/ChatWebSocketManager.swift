@@ -96,15 +96,24 @@ class ChatWebSocketManager: ObservableObject {
     private func handleMessage(_ data: Data) {
         guard let envelope = try? decoder.decode(WSTypeOnly.self, from: data) else { return }
 
-        guard envelope.type == "chat_response" else { return }
+        switch envelope.type {
+        case "chat_response":
+            guard let msg = try? decoder.decode(WSTypedEnvelope<ChatResponseData>.self, from: data) else { return }
+            let chatData = msg.data
+            if chatData.done {
+                responseChunk.send((chunk: "", done: true, fullMessage: chatData.message))
+            } else {
+                responseChunk.send((chunk: chatData.chunk ?? "", done: false, fullMessage: nil))
+            }
 
-        guard let msg = try? decoder.decode(WSTypedEnvelope<ChatResponseData>.self, from: data) else { return }
+        case "tts_audio":
+            // Forward TTS chunks to the main WebSocketManager so TTSPlayer can play them
+            if let msg = try? decoder.decode(WSTypedEnvelope<TTSAudioChunk>.self, from: data) {
+                WebSocketManager.shared.ttsChunkReceived.send(msg.data)
+            }
 
-        let chatData = msg.data
-        if chatData.done {
-            responseChunk.send((chunk: "", done: true, fullMessage: chatData.message))
-        } else {
-            responseChunk.send((chunk: chatData.chunk ?? "", done: false, fullMessage: nil))
+        default:
+            break
         }
     }
 
