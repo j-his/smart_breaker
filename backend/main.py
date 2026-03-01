@@ -16,6 +16,7 @@ from backend.ingestion.receiver import (
     process_sensor_reading,
 )
 from backend.ingestion.validator import SensorReading
+from backend.scheduler import optimization_loop, grid_refresh_loop
 
 logger = logging.getLogger(__name__)
 
@@ -40,14 +41,16 @@ async def _synthetic_data_loop():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Start background tasks on startup, clean up on shutdown."""
-    synthetic_task = asyncio.create_task(_synthetic_data_loop())
-    logger.info("EnergyAI backend started")
+    tasks = [
+        asyncio.create_task(_synthetic_data_loop()),
+        asyncio.create_task(optimization_loop()),
+        asyncio.create_task(grid_refresh_loop()),
+    ]
+    logger.info("EnergyAI backend started (3 background loops)")
     yield
-    synthetic_task.cancel()
-    try:
-        await synthetic_task
-    except asyncio.CancelledError:
-        pass
+    for t in tasks:
+        t.cancel()
+    await asyncio.gather(*tasks, return_exceptions=True)
     logger.info("EnergyAI backend stopped")
 
 
