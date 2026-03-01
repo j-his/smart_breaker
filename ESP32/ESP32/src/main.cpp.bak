@@ -11,142 +11,6 @@
 #include "pic_home.h"        // Include the header file containing image data
 // #include "img/device_interface2.h" // Include the header file containing additional image data
 
-#include <BLEDevice.h>
-#include <BLEServer.h>
-#include <BLEUtils.h>
-#include <BLE2902.h>
-#include <Preferences.h>
-#include <WiFi.h>
-
-#define SERVICE_UUID        "12340001-1234-5678-9ABC-FEDCBA987654"
-#define CHAR_UUID_WIFI_SSID "12340002-1234-5678-9ABC-FEDCBA987654"
-#define CHAR_UUID_WIFI_PASS "12340003-1234-5678-9ABC-FEDCBA987654"
-#define CHAR_UUID_WIFI_STAT "12340004-1234-5678-9ABC-FEDCBA987654"
-#define CHAR_UUID_BRK_STAT  "12340005-1234-5678-9ABC-FEDCBA987654"
-#define CHAR_UUID_BRK_CMD   "12340006-1234-5678-9ABC-FEDCBA987654"
-
-BLEServer* pServer = NULL;
-BLECharacteristic* pCharWifiStat = NULL;
-BLECharacteristic* pCharBrkStat = NULL;
-
-bool deviceConnected = false;
-bool oldDeviceConnected = false;
-
-Preferences preferences;
-
-String wifiSsid = "";
-String wifiPass = "";
-uint8_t wifiStatus = 0x00; // 0=disconnected, 1=connecting, 2=connected, 3=failed
-unsigned long lastWifiCheck = 0;
-
-void updateBreakerStateBLE();
-void updateWifiStateBLE();
-void connectToWiFi();
-
-// --------- Pin Configuration ----------
-const int ctPins[4] = {8, 14, 16, 18};
-const int buttonPins[4] = {1, 2, 4, 6};
-const int relayPins[4] = {15, 17, 19, 21};
-
-// --------- Button & Relay State ----------
-volatile bool relayState[4] = {false, false, false, false};
-int buttonState[4] = {HIGH, HIGH, HIGH, HIGH};
-int lastButtonReading[4] = {HIGH, HIGH, HIGH, HIGH};
-unsigned long lastDebounceTime[4] = {0, 0, 0, 0};
-unsigned long debounceDelay = 50;
-
-volatile bool needEpdUpdate = false;
-
-class MyServerCallbacks: public BLEServerCallbacks {
-    void onConnect(BLEServer* pServer) {
-      deviceConnected = true;
-    };
-    void onDisconnect(BLEServer* pServer) {
-      deviceConnected = false;
-      BLEDevice::startAdvertising();
-    }
-};
-
-class WifiSsidCallbacks: public BLECharacteristicCallbacks {
-    void onWrite(BLECharacteristic *pCharacteristic) {
-      std::string value = pCharacteristic->getValue();
-      if (value.length() > 0) {
-        wifiSsid = value.c_str();
-        preferences.putString("ssid", wifiSsid);
-        connectToWiFi();
-      }
-    }
-};
-
-class WifiPassCallbacks: public BLECharacteristicCallbacks {
-    void onWrite(BLECharacteristic *pCharacteristic) {
-      std::string value = pCharacteristic->getValue();
-      if (value.length() > 0) {
-        wifiPass = value.c_str();
-        preferences.putString("pass", wifiPass);
-        connectToWiFi();
-      }
-    }
-};
-
-class BrkCmdCallbacks: public BLECharacteristicCallbacks {
-    void onWrite(BLECharacteristic *pCharacteristic) {
-      std::string value = pCharacteristic->getValue();
-      if (value.length() >= 2) {
-        uint8_t channel = value[0];
-        uint8_t state = value[1];
-        if (channel < 4) {
-          relayState[channel] = (state == 1);
-          digitalWrite(relayPins[channel], relayState[channel] ? HIGH : LOW);
-          
-          uint8_t stateBitmap = 0;
-          for(int i = 0; i < 4; i++) {
-              if(relayState[i]) stateBitmap |= (1 << i);
-          }
-          preferences.putUChar("brkStat", stateBitmap);
-
-          needEpdUpdate = true;
-          updateBreakerStateBLE();
-        }
-      }
-    }
-};
-
-void updateBreakerStateBLE() {
-  if (pCharBrkStat) {
-    uint8_t stateBitmap = 0;
-    for (int i = 0; i < 4; i++) {
-      if (relayState[i]) {
-        stateBitmap |= (1 << i);
-      }
-    }
-    pCharBrkStat->setValue(&stateBitmap, 1);
-    pCharBrkStat->notify();
-  }
-}
-
-void updateWifiStateBLE() {
-  if (pCharWifiStat) {
-    pCharWifiStat->setValue(&wifiStatus, 1);
-    pCharWifiStat->notify();
-  }
-}
-
-void connectToWiFi() {
-  if (wifiSsid == "") {
-    wifiStatus = 0x00;
-    updateWifiStateBLE();
-    return;
-  }
-  WiFi.disconnect();
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(wifiSsid.c_str(), wifiPass.c_str());
-  wifiStatus = 0x01; // connecting
-  updateWifiStateBLE();
-  lastWifiCheck = millis();
-}
-
-
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 32
 #define OLED_RESET    -1
@@ -165,6 +29,20 @@ void tcaSelect(uint8_t i) {
   Wire.write(1 << i);
   Wire.endTransmission();
 }
+
+// --------- Pin Configuration ----------
+const int ctPins[4] = {8, 14, 16, 18};
+const int buttonPins[4] = {1, 2, 4, 6};
+const int relayPins[4] = {15, 17, 19, 21};
+
+// --------- Button & Relay State ----------
+volatile bool relayState[4] = {false, false, false, false};
+int buttonState[4] = {HIGH, HIGH, HIGH, HIGH};
+int lastButtonReading[4] = {HIGH, HIGH, HIGH, HIGH};
+unsigned long lastDebounceTime[4] = {0, 0, 0, 0};
+unsigned long debounceDelay = 50;
+
+volatile bool needEpdUpdate = false;
 
 // 4 blocks distributed horizontally across the 792 pixel width
 // 792 / 4 = 198 pixels per block. 
@@ -206,14 +84,6 @@ void buttonTask(void *pvParameters) {
           if (buttonState[i] == LOW) {
             relayState[i] = !relayState[i];
             digitalWrite(relayPins[i], relayState[i] ? HIGH : LOW);
-            
-            uint8_t stateBitmap = 0;
-            for(int j = 0; j < 4; j++) {
-                if(relayState[j]) stateBitmap |= (1 << j);
-            }
-            preferences.putUChar("brkStat", stateBitmap);
-            updateBreakerStateBLE();
-            
             needEpdUpdate = true;
           }
         }
@@ -259,66 +129,11 @@ void setup() {
   pinMode(7, OUTPUT);        // Set pin 7 to output mode
   digitalWrite(7, HIGH);     // Set pin 7 to high level to activate the screen power
 
-  preferences.begin("app", false);
-  wifiSsid = preferences.getString("ssid", "");
-  wifiPass = preferences.getString("pass", "");
-  uint8_t savedBrkStat = preferences.getUChar("brkStat", 0);
-
   for (int i = 0; i < 4; i++) {
-    relayState[i] = (savedBrkStat & (1 << i)) ? true : false;
     pinMode(buttonPins[i], INPUT_PULLUP);
     pinMode(relayPins[i], OUTPUT);
-    digitalWrite(relayPins[i], relayState[i] ? HIGH : LOW);
+    digitalWrite(relayPins[i], LOW);
   }
-
-  BLEDevice::init("EnergyAI-4A40");
-  pServer = BLEDevice::createServer();
-  pServer->setCallbacks(new MyServerCallbacks());
-
-  BLEService *pService = pServer->createService(SERVICE_UUID);
-
-  BLECharacteristic *pCharWifiSsid = pService->createCharacteristic(
-                                         CHAR_UUID_WIFI_SSID,
-                                         BLECharacteristic::PROPERTY_WRITE
-                                       );
-  pCharWifiSsid->setCallbacks(new WifiSsidCallbacks());
-
-  BLECharacteristic *pCharWifiPass = pService->createCharacteristic(
-                                         CHAR_UUID_WIFI_PASS,
-                                         BLECharacteristic::PROPERTY_WRITE
-                                       );
-  pCharWifiPass->setCallbacks(new WifiPassCallbacks());
-
-  pCharWifiStat = pService->createCharacteristic(
-                      CHAR_UUID_WIFI_STAT,
-                      BLECharacteristic::PROPERTY_READ |
-                      BLECharacteristic::PROPERTY_NOTIFY
-                    );
-  pCharWifiStat->addDescriptor(new BLE2902());
-  
-  pCharBrkStat = pService->createCharacteristic(
-                     CHAR_UUID_BRK_STAT,
-                     BLECharacteristic::PROPERTY_READ |
-                     BLECharacteristic::PROPERTY_NOTIFY
-                   );
-  pCharBrkStat->addDescriptor(new BLE2902());
-
-  BLECharacteristic *pCharBrkCmd = pService->createCharacteristic(
-                                       CHAR_UUID_BRK_CMD,
-                                       BLECharacteristic::PROPERTY_WRITE
-                                     );
-  pCharBrkCmd->setCallbacks(new BrkCmdCallbacks());
-
-  pService->start();
-  BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
-  pAdvertising->addServiceUUID(SERVICE_UUID);
-  pAdvertising->setScanResponse(true);
-  pAdvertising->setMinPreferred(0x06);
-  pAdvertising->setMinPreferred(0x12);
-  BLEDevice::startAdvertising();
-
-  updateBreakerStateBLE();
-  connectToWiFi();
 
   EPD_GPIOInit();            // Initialize the GPIO pin configuration for the EPD electronic ink screen
   Paint_NewImage(ImageBW, EPD_W, EPD_H, Rotation, WHITE); // Create a new image buffer with dimensions EPD_W x EPD_H and a white background
@@ -329,8 +144,15 @@ void setup() {
   EPD_Display_Clear();       // Clear the screen content
   EPD_Update();              // Update the screen display
 
-  // Trigger first draw in loop()
-  needEpdUpdate = true;
+  // Initial draw
+  for (int i = 0; i < 4; i++) {
+    if (relayState[i]) {
+      draw_image_to_buffer(square, relayX[i], relayY[i], 70, 70);
+    } else {
+      draw_image_to_buffer(square2, relayX[i], relayY[i], 70, 70);
+    }
+  }
+  update_screen();
 
   xTaskCreatePinnedToCore(
     buttonTask,
@@ -345,37 +167,9 @@ void setup() {
 
 
 void loop() {
-  if (wifiStatus == 0x01) {
-    if (WiFi.status() == WL_CONNECTED) {
-      wifiStatus = 0x02; // connected
-      updateWifiStateBLE();
-      needEpdUpdate = true;
-    } else if (millis() - lastWifiCheck > 15000) { // 15s timeout
-      wifiStatus = 0x03; // failed
-      updateWifiStateBLE();
-      needEpdUpdate = true;
-    }
-  }
-
   // Main loop function
   if (needEpdUpdate) {
     needEpdUpdate = false;
-    
-    // Clear the buffer
-    Paint_Clear(WHITE);
-
-    // Draw wifi status string
-    String wifiStr = "Wi-Fi: Disconnected";
-    if (wifiStatus == 0x01) wifiStr = "Wi-Fi: Connecting...";
-    else if (wifiStatus == 0x02) {
-      wifiStr = "Wi-Fi: Connected | IP: ";
-      wifiStr += WiFi.localIP().toString();
-    }
-    else if (wifiStatus == 0x03) wifiStr = "Wi-Fi: Failed";
-    
-    EPD_ShowString(10, 10, wifiStr.c_str(), 16, BLACK);
-
-    // Draw breaker buttons
     for (int i = 0; i < 4; i++) {
       if (relayState[i]) {
         draw_image_to_buffer(square, relayX[i], relayY[i], 70, 70);
