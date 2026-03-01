@@ -17,6 +17,11 @@
 #include <BLE2902.h>
 #include <Preferences.h>
 #include <WiFi.h>
+#include <HTTPClient.h>
+#include <time.h>
+
+#define DEFAULT_SERVER_URL "http://192.168.0.208:8000/"
+
 
 #define SERVICE_UUID        "12340001-1234-5678-9ABC-FEDCBA987654"
 #define CHAR_UUID_WIFI_SSID "12340002-1234-5678-9ABC-FEDCBA987654"
@@ -31,6 +36,8 @@ BLECharacteristic* pCharBrkStat = NULL;
 
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
+
+String deviceName = "EnergyAI-????";
 
 Preferences preferences;
 
@@ -291,7 +298,14 @@ void setup() {
     digitalWrite(relayPins[i], relayState[i] ? HIGH : LOW);
   }
 
-  BLEDevice::init("getmogged-pro-9000");
+  WiFi.mode(WIFI_STA);
+  String macStr = WiFi.macAddress();
+  macStr.replace(":", "");
+  deviceName = "EnergyAI-" + macStr.substring(8);
+  
+  configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+
+  BLEDevice::init(deviceName.c_str());
   pServer = BLEDevice::createServer();
   pServer->setCallbacks(new MyServerCallbacks());
 
@@ -499,6 +513,41 @@ void loop() {
       Serial.print(" A   ");
     }
     Serial.println();
+
+    static unsigned int postCounter = 0;
+    postCounter++;
+    if (wifiStatus == 0x02 && postCounter >= 10) {
+      postCounter = 0;
+      
+      HTTPClient http;
+      http.begin(String(DEFAULT_SERVER_URL) + "api/sensor");
+      http.addHeader("Content-Type", "application/json");
+
+      struct tm timeinfo;
+      char timeStr[32] = "1970-01-01T00:00:00Z";
+      if(getLocalTime(&timeinfo, 10)) {
+          strftime(timeStr, sizeof(timeStr), "%Y-%m-%dT%H:%M:%SZ", &timeinfo);
+      }
+
+      String payload = "{";
+      payload += "\"device_id\": \"" + deviceName + "\",";
+      payload += "\"timestamp\": \"" + String(timeStr) + "\",";
+      payload += "\"channels\": [";
+      for(int i=0; i<4; i++) {
+          float current = Irms[i] < 0 ? 0 : Irms[i];
+          payload += "{ \"channel_id\": " + String(i) + ", \"current_amps\": " + String(current, 2) + " }";
+          if(i < 3) payload += ",";
+      }
+      payload += "]}";
+
+      int httpCode = http.POST(payload);
+      if (httpCode > 0) {
+        Serial.printf("POST success: %d\n", httpCode);
+      } else {
+        Serial.printf("POST failed: %s\n", http.errorToString(httpCode).c_str());
+      }
+      http.end();
+    }
 
     // Update Screens
     for (uint8_t t = 0; t < 4; t++) {
