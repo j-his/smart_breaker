@@ -1,4 +1,6 @@
-#include "spi.h"
+#include "epd_spi.h"
+#include <SPI.h> // to avoid any missing SPI issue
+
 
 void EPD_GPIOInit(void)
 {

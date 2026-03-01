@@ -1,7 +1,34 @@
 #include <Arduino.h>         // Include the core Arduino library to provide basic Arduino functionality
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 #include "EPD.h"             // Include the EPD library for controlling the electronic ink screen (E-Paper Display)
+#undef WHITE
+#undef BLACK
+#define WHITE 0xFF
+#define BLACK 0x00
 #include "pic_home.h"        // Include the header file containing image data
 // #include "img/device_interface2.h" // Include the header file containing additional image data
+
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 32
+#define OLED_RESET    -1
+#define TCAADDR       0x70
+
+Adafruit_SSD1306 displays[4] = {
+  Adafruit_SSD1306(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET),
+  Adafruit_SSD1306(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET),
+  Adafruit_SSD1306(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET),
+  Adafruit_SSD1306(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET)
+};
+
+void tcaSelect(uint8_t i) {
+  if (i > 7) return;
+  Wire.beginTransmission(TCAADDR);
+  Wire.write(1 << i);
+  Wire.endTransmission();
+}
 
 uint8_t ImageBW[27200];      // Declare an array of 27200 bytes to store black and white image data
 
@@ -16,6 +43,26 @@ void draw_image_to_buffer(uint8_t *image, int x, int y, int w, int h);
 void update_screen();
 
 void setup() {
+  Serial.begin(115200);
+  Wire.begin(3, 9); // Initialize I2C with SDA=3, SCL=9 for the TCA9548A multiplexer
+
+  for (uint8_t t=0; t<4; t++) {
+    tcaSelect(t);
+    // Address 0x3C for most 128x32 OLEDs
+    if(!displays[t].begin(SSD1306_SWITCHCAPVCC, 0x3C)) { 
+      Serial.print("SSD1306 allocation failed for screen ");
+      Serial.println(t);
+    } else {
+      displays[t].clearDisplay();
+      displays[t].setTextColor(SSD1306_WHITE);
+      displays[t].setTextSize(2);
+      displays[t].setCursor(0, 0);
+      displays[t].print("Screen ");
+      displays[t].println(t + 1);
+      displays[t].display();
+    }
+  }
+
   for(int i = 0; i < 4900; i++) {
     square[i] = 0x00; // 0x00 is BLACK
     square2[i] = 0xFF;
@@ -80,8 +127,49 @@ void setup() {
 
 
 void loop() {
-  // Main loop function, currently does not perform any actions
-  // Code that needs to be executed repeatedly can be added here
+  // Main loop function
+  static unsigned long lastUpdate = 0;
+  if (millis() - lastUpdate > 1000) {
+    lastUpdate = millis();
+
+    // Screen 1: Displays text and a counter
+    tcaSelect(0);
+    displays[0].clearDisplay();
+    displays[0].setTextSize(1);
+    displays[0].setCursor(0,0);
+    displays[0].println("Breaker 1: Normal");
+    displays[0].print("Uptime: ");
+    displays[0].print(millis() / 1000);
+    displays[0].println("s");
+    displays[0].display();
+
+    // Screen 2: Displays a line
+    tcaSelect(1);
+    displays[1].clearDisplay();
+    displays[1].setTextSize(1);
+    displays[1].setCursor(0,0);
+    displays[1].println("Breaker 2: Alert");
+    displays[1].drawLine(0, 16, 127, 31, SSD1306_WHITE);
+    displays[1].display();
+
+    // Screen 3: Displays a rectangle
+    tcaSelect(2);
+    displays[2].clearDisplay();
+    displays[2].setTextSize(1);
+    displays[2].setCursor(0,0);
+    displays[2].println("Breaker 3: Off");
+    displays[2].drawRect(10, 10, 100, 20, SSD1306_WHITE);
+    displays[2].display();
+
+    // Screen 4: Displays a circle
+    tcaSelect(3);
+    displays[3].clearDisplay();
+    displays[3].setTextSize(1);
+    displays[3].setCursor(0,0);
+    displays[3].println("Breaker 4: On");
+    displays[3].drawCircle(64, 16, 15, SSD1306_WHITE);
+    displays[3].display();
+  }
 }
 
 void clear_all() {
