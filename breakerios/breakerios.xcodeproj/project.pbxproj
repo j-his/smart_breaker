@@ -6,11 +6,6 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXBuildFile section */
-		BB06A58C2F53A25800C5287B /* iPad_Adaptation_Guide.md in Resources */ = {isa = PBXBuildFile; fileRef = BB06A58B2F53A25800C5287B /* iPad_Adaptation_Guide.md */; };
-		BB06A58E2F53A29300C5287B /* iPad_Optimization_Summary.md in Resources */ = {isa = PBXBuildFile; fileRef = BB06A58D2F53A29300C5287B /* iPad_Optimization_Summary.md */; };
-/* End PBXBuildFile section */
-
 /* Begin PBXContainerItemProxy section */
 		BB06A5652F538BBE00C5287B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -32,8 +27,6 @@
 		BB06A5572F538BBD00C5287B /* breakerios.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = breakerios.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BB06A5642F538BBE00C5287B /* breakeriosTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = breakeriosTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		BB06A56E2F538BBE00C5287B /* breakeriosUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = breakeriosUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		BB06A58B2F53A25800C5287B /* iPad_Adaptation_Guide.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = iPad_Adaptation_Guide.md; sourceTree = "<group>"; };
-		BB06A58D2F53A29300C5287B /* iPad_Optimization_Summary.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = iPad_Optimization_Summary.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -86,8 +79,6 @@
 				BB06A5672F538BBE00C5287B /* breakeriosTests */,
 				BB06A5712F538BBE00C5287B /* breakeriosUITests */,
 				BB06A5582F538BBD00C5287B /* Products */,
-				BB06A58B2F53A25800C5287B /* iPad_Adaptation_Guide.md */,
-				BB06A58D2F53A29300C5287B /* iPad_Optimization_Summary.md */,
 			);
 			sourceTree = "<group>";
 		};
@@ -221,8 +212,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				BB06A58C2F53A25800C5287B /* iPad_Adaptation_Guide.md in Resources */,
-				BB06A58E2F53A29300C5287B /* iPad_Optimization_Summary.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -411,6 +400,8 @@
 				DEVELOPMENT_TEAM = WF7R53VRB7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "connect to device";
+				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "connect to device";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -443,6 +434,8 @@
 				DEVELOPMENT_TEAM = WF7R53VRB7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "connect to device";
+				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "connect to device";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
