@@ -212,26 +212,10 @@ struct SettingsView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
-                    if viewModel.narrationEnabled {
-                        if viewModel.isLoadingVoices {
-                            HStack {
-                                Text("Loading voices...")
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                ProgressView()
-                            }
-                        } else if !viewModel.availableVoices.isEmpty {
-                            Picker("Voice", selection: $viewModel.selectedVoiceId) {
-                                ForEach(viewModel.availableVoices) { voice in
-                                    HStack {
-                                        Text(voice.name)
-                                        Text("— \(voice.desc)")
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    .tag(voice.id)
-                                }
-                            }
-                            .pickerStyle(.navigationLink)
+                    Picker("Voice", selection: $viewModel.selectedVoiceId) {
+                        ForEach(viewModel.availableVoices) { voice in
+                            Text("\(voice.name) — \(voice.desc)")
+                                .tag(voice.id)
                         }
                     }
 
