@@ -116,6 +116,23 @@ The ESP32 advertises as "EnergyAI-XXXX" over BLE. Pair via the iOS app, enter Wi
 | E-ink SPI | 12, 11, 47, 46, 45, 48 | Bit-banged |
 | E-ink Power | 7 | Enable pin |
 
+## Hardware Teammate Quick Start
+
+If you're working on the hardware (ESP32 wiring, CT clamps, relays, displays), see the full guide:
+
+**[firmware/HARDWARE_GUIDE.md](firmware/HARDWARE_GUIDE.md)**
+
+Quick version:
+
+1. Install PlatformIO: `pip install platformio`
+2. Flash: `cd firmware && pio run -t upload`
+3. Monitor serial: `pio device monitor` (115200 baud)
+4. Scan for BLE device `EnergyAI-XXXX` from the iOS app or nRF Connect
+5. Send WiFi credentials via BLE → device auto-connects and starts POSTing sensor data
+6. **Important:** CH0/CH1 button GPIOs need to be assigned — see the [button conflict section](firmware/HARDWARE_GUIDE.md#4-button-conflict--action-required) in the hardware guide
+
+The guide covers the full BLE protocol, GPIO pin map, CT clamp calibration, relay wiring, and a step-by-step testing checklist.
+
 ## Testing
 
 ```bash
