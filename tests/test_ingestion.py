@@ -78,6 +78,26 @@ class TestValidator:
             assert "is_active" in ch
 
 
+    def test_channel_reading_without_zone_appliance(self):
+        """ChannelReading with just channel_id + current_amps fills defaults from config."""
+        ch = ChannelReading(channel_id=0, current_amps=10.0)
+        assert ch.assigned_zone == "kitchen"
+        assert ch.assigned_appliance == "inductive_stove"
+        assert ch.get_watts() == 1200.0
+
+    def test_channel_reading_with_power_watts(self):
+        """When power_watts is provided, get_watts() returns it directly."""
+        ch = ChannelReading(
+            channel_id=1,
+            assigned_zone="laundry_room",
+            assigned_appliance="dryer",
+            current_amps=20.0,
+            power_watts=2500.0,
+        )
+        # Should use power_watts, not amps * voltage
+        assert ch.get_watts() == 2500.0
+
+
 class TestBuffer:
     """SensorBuffer ring buffer tests."""
 
