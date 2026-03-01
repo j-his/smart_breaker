@@ -8,28 +8,38 @@
 import SwiftUI
 
 struct AboutView: View {
+    @Environment(\.colorScheme) var colorScheme
+    
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 30) {
-                    // App Icon and Title
+                    // Company Logo at Top
                     VStack(spacing: 16) {
-                        Image(systemName: "bolt.shield.fill")
-                            .font(.system(size: 80))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [.blue, .green],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
+                        // Noise Floor Logo
+                        Image("noisefloor")
+                            .renderingMode(.template)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(height: 80)
+                            .foregroundStyle(colorScheme == .dark ? .white : .black)
                         
-                        Text("Smart Breaker")
-                            .font(.title)
-                            .fontWeight(.bold)
+                        HStack(alignment: .firstTextBaseline, spacing: 0) {
+                            Text("SaveBox")
+                                .font(.title)
+                                .fontWeight(.bold)
+                            Text("™")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .baselineOffset(8)
+                        }
+                        
+                        Text("Developed by Noise Floor")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
                         
                         Text("Version 1.0.0")
-                            .font(.subheadline)
+                            .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                     .padding(.top, 40)
@@ -40,7 +50,7 @@ struct AboutView: View {
                             .font(.title2)
                             .fontWeight(.bold)
                         
-                        Text("Smart Breaker is an intelligent energy management system that monitors your home's electricity usage in real-time and optimizes your schedule to reduce costs and carbon emissions.")
+                        Text("SaveBox is an intelligent energy management system that monitors your home's electricity usage in real-time and optimizes your schedule to reduce costs and carbon emissions.")
                             .font(.body)
                             .foregroundStyle(.secondary)
                         
@@ -118,13 +128,9 @@ struct AboutView: View {
                     }
                     .padding(.horizontal)
                     
-                    // Credits
+                    // Copyright
                     VStack(spacing: 8) {
-                        Text("Developed by Tong tong Wang")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        
-                        Text("© 2026 All Rights Reserved")
+                        Text("© 2026 Noise Floor. All Rights Reserved")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }

@@ -342,9 +342,14 @@ class DeviceViewModel: ObservableObject {
         WebSocketManager.shared.sensorUpdate
             .receive(on: DispatchQueue.main)
             .sink { [weak self] update in
-                self?.channels = update.channels
-                self?.totalWatts = update.totalWatts
-                self?.mergeBreakerStates()
+                guard let self else { return }
+                // Only update power readings if hardware is actually connected
+                // Ignore simulated data when hardware is disconnected
+                if !update.simulated {
+                    self.channels = update.channels
+                    self.totalWatts = update.totalWatts
+                    self.mergeBreakerStates()
+                }
             }
             .store(in: &cancellables)
 

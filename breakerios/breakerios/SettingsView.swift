@@ -16,6 +16,14 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    NavigationLink {
+                        AboutView()
+                    } label: {
+                        Label("About SaveBox", systemImage: "info.circle")
+                    }
+                }
+                
                 Section("Hardware Connection") {
                     HStack {
                         Text("BLE Status")

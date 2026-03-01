@@ -36,12 +36,6 @@ struct ContentView: View {
                     Label("Settings", systemImage: "gear")
                 }
                 .tag(3)
-
-            AboutView()
-                .tabItem {
-                    Label("About", systemImage: "info.circle")
-                }
-                .tag(4)
         }
         .overlay(alignment: .bottomTrailing) {
             Button { showingChat = true } label: {

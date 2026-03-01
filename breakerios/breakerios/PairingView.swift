@@ -30,6 +30,15 @@ struct PairingView: View {
                 }
             }
             .navigationTitle("Set Up Device")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    NavigationLink {
+                        AboutView()
+                    } label: {
+                        Image(systemName: "info.circle")
+                    }
+                }
+            }
         }
     }
 
@@ -44,9 +53,18 @@ struct PairingView: View {
                 .foregroundStyle(.blue)
                 .symbolEffect(.variableColor.iterative, isActive: ble.isScanning)
 
-            Text("Looking for EnergyAI Devices")
-                .font(.title2)
-                .fontWeight(.semibold)
+            HStack(alignment: .firstTextBaseline, spacing: 0) {
+                Text("Looking for Save Box")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                Text("™")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .baselineOffset(6)
+                Text(" Devices")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+            }
 
             Text("Make sure your Smart Breaker is powered on and nearby.")
                 .font(.subheadline)
