@@ -126,7 +126,7 @@ def optimizer_result_to_events(
             "estimated_watts": event.power_watts,
             "savings_cents": savings_cents,
             "carbon_avoided_g": carbon_avoided_g,
-            "reason": "",
+            "reason": f"Moved to {grid_status} period (hour {opt_start_hour}) saving {savings_cents:.0f}¢" if was_moved else "Kept at original time",
             "grid_status_at_time": grid_status,
             "is_deferrable": event.is_deferrable,
             "was_moved": was_moved,

@@ -106,13 +106,20 @@ def _format_grid_forecast(grid_forecast: list[dict]) -> str:
 
 def _format_ml_analysis(ml_result: dict) -> str:
     lines = ["## ML Analysis"]
-    if "anomaly" in ml_result:
-        lines.append(f"- Anomaly detected: {ml_result['anomaly']}")
+    if "anomaly_score" in ml_result:
+        score = ml_result["anomaly_score"]
+        level = "HIGH" if score > 0.7 else "moderate" if score > 0.4 else "normal"
+        lines.append(f"- Anomaly level: {level} (score: {score:.2f})")
     if "forecast_summary" in ml_result:
         lines.append(f"- Forecast: {ml_result['forecast_summary']}")
-    if "confidence" in ml_result:
-        lines.append(f"- Model confidence: {ml_result['confidence']:.0%}")
-    if not any(k in ml_result for k in ("anomaly", "forecast_summary", "confidence")):
+    if "day_type" in ml_result:
+        lines.append(f"- Day type: {ml_result['day_type']}")
+    if "day_type_confidence" in ml_result:
+        lines.append(f"- Model confidence: {ml_result['day_type_confidence']:.0%}")
+    if "nilm_active" in ml_result:
+        active = ml_result["nilm_active"]
+        lines.append(f"- NILM active channels: {active}")
+    if not any(k in ml_result for k in ("anomaly_score", "forecast_summary", "day_type_confidence")):
         lines.append(f"- Raw: {ml_result}")
     return "\n".join(lines)
 

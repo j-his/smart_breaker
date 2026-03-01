@@ -9,6 +9,9 @@ Feature budget:
     future: 10 features (temporal + grid signals known ahead of time)
     static:  8 features (day_type one-hot + channel identity)
 """
+import math
+from datetime import datetime, timezone
+
 import numpy as np
 import pandas as pd
 from dataclasses import dataclass
@@ -133,6 +136,193 @@ class FeatureEngine:
                 targets[k] = v.astype(np.float32)
 
         return past, future, static, targets
+
+    # ── Real-Time Feature Bridge ─────────────────────────────────────────────
+
+    def build_realtime_window(
+        self,
+        buffer_window: np.ndarray,
+        now: datetime,
+        grid_forecast: list[dict],
+        calendar_events: list[dict] | None = None,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Convert a live SensorBuffer window into model-ready tensors.
+
+        Unlike build_dataset() which operates on full DataFrames, this method
+        works with the raw (96, 8) ring buffer and computes all 53 past features,
+        10 future features, and 8 static features from scratch.
+
+        Args:
+            buffer_window: (96, 8) array — [ch0-3, total, renewable, carbon, price]
+            now: current UTC datetime
+            grid_forecast: 24-element list of hourly grid forecast dicts
+            calendar_events: optional list of event dicts with start/end/channel_id/power_watts
+
+        Returns:
+            (past, future, static) as float32 numpy arrays:
+                past:   (96, 53)
+                future: (24, 10)
+                static: (8,)
+        """
+        T = buffer_window.shape[0]  # 96
+        cal_events = calendar_events or []
+
+        # ── Past Features (96, 53) ──────────────────────────────────────────
+
+        # Raw power (5): ch0-3 + total — directly from buffer cols 0-4
+        raw_power = buffer_window[:, :5]  # (96, 5)
+
+        # Grid signals (4): renewable, carbon, price from buffer + temperature
+        month = now.month
+        temp_f = 72.0 if month in (11, 12, 1, 2, 3) else 85.0
+        grid_signals = np.column_stack([
+            buffer_window[:, 5],   # renewable_pct
+            buffer_window[:, 6],   # carbon_intensity
+            buffer_window[:, 7],   # tou_price_cents
+            np.full(T, temp_f),    # temperature_f (seasonal default)
+        ])  # (96, 4)
+
+        # Temporal cyclical (5): sin/cos hour, sin/cos dow, is_weekend
+        # Build timestamps for each of the 96 steps (15-min intervals backward from now)
+        step_hours = np.arange(T - 1, -1, -1) * 0.25  # hours ago
+        ts_hours = np.array([
+            (now.hour + now.minute / 60.0) - h for h in step_hours
+        ]) % 24.0
+        # Day-of-week for each step
+        base_dow = now.weekday()
+        ts_dows = np.array([
+            (base_dow - h // 24) % 7 for h in step_hours
+        ], dtype=float)
+
+        hour_sin = np.sin(2 * math.pi * ts_hours / 24.0)
+        hour_cos = np.cos(2 * math.pi * ts_hours / 24.0)
+        dow_sin = np.sin(2 * math.pi * ts_dows / 7.0)
+        dow_cos = np.cos(2 * math.pi * ts_dows / 7.0)
+        is_weekend = (ts_dows >= 5).astype(np.float32)
+        temporal = np.column_stack([hour_sin, hour_cos, dow_sin, dow_cos, is_weekend])  # (96, 5)
+
+        # TOU flags (2): is_peak (16-21), is_super_offpeak (<7 or >=21)
+        is_peak = ((ts_hours >= 16) & (ts_hours < 21)).astype(np.float32)
+        is_super_offpeak = ((ts_hours < 7) | (ts_hours >= 21)).astype(np.float32)
+        tou_flags = np.column_stack([is_peak, is_super_offpeak])  # (96, 2)
+
+        # Rolling stats (16): rmean/rstd at windows 4 and 16 for each channel
+        rolling_parts = []
+        for i in range(4):
+            ch_col = buffer_window[:, i]
+            for w in (4, 16):
+                # Cumulative rolling via pandas-like logic, min_periods=1
+                cumsum = np.cumsum(np.insert(ch_col, 0, 0))
+                means = np.empty(T)
+                stds = np.empty(T)
+                for t in range(T):
+                    start = max(0, t - w + 1)
+                    window_vals = ch_col[start:t + 1]
+                    means[t] = window_vals.mean()
+                    stds[t] = window_vals.std() if len(window_vals) > 1 else 0.0
+                rolling_parts.append(means)
+                rolling_parts.append(stds)
+        rolling_stats = np.column_stack(rolling_parts)  # (96, 16)
+
+        # Cross-channel (5): ch_ratio for each + n_active
+        total_safe = buffer_window[:, 4] + 1e-8
+        ch_ratios = np.column_stack([
+            buffer_window[:, i] / total_safe for i in range(4)
+        ])  # (96, 4)
+        n_active = np.sum(buffer_window[:, :4] > 50, axis=1, keepdims=True).astype(np.float32)
+        cross_channel = np.column_stack([ch_ratios, n_active])  # (96, 5)
+
+        # Lag features (8): shift ch0-3 by 4 and 96
+        lag_parts = []
+        for i in range(4):
+            ch_col = buffer_window[:, i]
+            lag4 = np.empty(T)
+            lag4[:4] = 0.0
+            lag4[4:] = ch_col[:-4]
+            lag96 = np.zeros(T)  # all zeros since we only have 96 steps
+            lag_parts.extend([lag4, lag96])
+        lag_features = np.column_stack(lag_parts)  # (96, 8)
+
+        # Grid delta (1): first difference of price column
+        price_col = buffer_window[:, 7]
+        price_delta = np.empty(T)
+        price_delta[0] = 0.0
+        price_delta[1:] = np.diff(price_col)
+        price_delta = price_delta.reshape(-1, 1)  # (96, 1)
+
+        # Calendar features (7): events_next_4h, watts_next_4h, time_to_next, cal_active_ch0-3
+        events_next_4h = np.zeros(T)
+        events_watts_next_4h = np.zeros(T)
+        time_to_next_event = np.full(T, 24.0)
+        cal_active = np.zeros((T, 4))
+
+        if cal_events:
+            for t_idx in range(T):
+                step_dt_hour = ts_hours[t_idx]
+                for ev in cal_events:
+                    ev_start = ev.get("start")
+                    ev_end = ev.get("end")
+                    if ev_start is None:
+                        continue
+                    if isinstance(ev_start, str):
+                        from dateutil import parser as dp
+                        ev_start = dp.isoparse(ev_start)
+                        ev_end = dp.isoparse(ev_end) if ev_end else ev_start
+                    delta_h = (ev_start - now).total_seconds() / 3600.0
+                    if 0 <= delta_h <= 4:
+                        events_next_4h[t_idx] += 1
+                        events_watts_next_4h[t_idx] += ev.get("power_watts", 0)
+                    if delta_h >= 0 and delta_h < time_to_next_event[t_idx]:
+                        time_to_next_event[t_idx] = delta_h
+                    ch = ev.get("channel_id", 0)
+                    if ev_start <= now and (ev_end is None or now < ev_end) and 0 <= ch < 4:
+                        cal_active[t_idx, ch] = 1.0
+
+        calendar_feats = np.column_stack([
+            events_next_4h, events_watts_next_4h, time_to_next_event,
+            cal_active[:, 0], cal_active[:, 1], cal_active[:, 2], cal_active[:, 3],
+        ])  # (96, 7)
+
+        # Assemble past: 5+4+5+2+16+5+8+1+7 = 53
+        past = np.concatenate([
+            raw_power, grid_signals, temporal, tou_flags,
+            rolling_stats, cross_channel, lag_features, price_delta,
+            calendar_feats,
+        ], axis=1).astype(np.float32)  # (96, 53)
+
+        # ── Future Features (24, 10) ────────────────────────────────────────
+
+        future = np.zeros((self.config.forecast_horizon, self._n_future), dtype=np.float32)
+        for h_idx in range(min(len(grid_forecast), self.config.forecast_horizon)):
+            entry = grid_forecast[h_idx]
+            future_hour = (now.hour + h_idx + 1) % 24
+            future_dow = (now.weekday() + (now.hour + h_idx + 1) // 24) % 7
+
+            future[h_idx, 0] = math.sin(2 * math.pi * future_hour / 24.0)
+            future[h_idx, 1] = math.cos(2 * math.pi * future_hour / 24.0)
+            future[h_idx, 2] = math.sin(2 * math.pi * future_dow / 7.0)
+            future[h_idx, 3] = math.cos(2 * math.pi * future_dow / 7.0)
+            future[h_idx, 4] = 1.0 if future_dow >= 5 else 0.0
+            future[h_idx, 5] = 1.0 if 16 <= future_hour < 21 else 0.0
+            future[h_idx, 6] = 1.0 if future_hour < 7 or future_hour >= 21 else 0.0
+            future[h_idx, 7] = entry.get("renewable_pct", 0.0)
+            future[h_idx, 8] = entry.get("carbon_intensity_gco2_kwh", 0.0)
+            future[h_idx, 9] = entry.get("tou_price_cents_kwh", 0.0)
+
+        # ── Static Features (8) ─────────────────────────────────────────────
+
+        # Day type one-hot: default workday [1,0,0,0]
+        day_type_oh = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
+        # Channel identity: all channels present [1,1,1,1]
+        ch_identity = np.ones(self.config.n_channels, dtype=np.float32)
+        static = np.concatenate([day_type_oh, ch_identity])  # (8,)
+
+        # NaN safety
+        past = np.nan_to_num(past, nan=0.0)
+        future = np.nan_to_num(future, nan=0.0)
+        static = np.nan_to_num(static, nan=0.0)
+
+        return past, future, static
 
     # ── Private Helpers ─────────────────────────────────────────────────────
 

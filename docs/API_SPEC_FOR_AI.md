@@ -298,6 +298,27 @@ Response 200:
 
 ---
 
+### GET /api/attention
+
+Purpose: retrieve ML attention weights and anomaly detection data
+
+```
+Response 200 (when ML data available):
+{
+  attention_weights:          float[]    // per-hour attention weights from the TFT model
+  day_type:                   string     // e.g. "weekday", "weekend", "holiday"
+  anomaly_score:              float      // 0.0-1.0, higher = more anomalous
+}
+
+Response 200 (fallback, no ML data):
+{
+  attention_weights:          float[]    // empty array []
+  message:                    string     // "No ML data yet"
+}
+```
+
+---
+
 ## WebSocket: ws://localhost:8000/ws/live
 
 Direction: **server -> client** (push only, client does not send)

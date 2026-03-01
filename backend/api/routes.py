@@ -17,7 +17,7 @@ from backend.ingestion.receiver import (
 from backend.ingestion.validator import SensorReading
 from backend.calendar.parser import CalendarEvent, parse_ical, parse_json_tasks
 from backend.optimizer.scheduler import run_optimization
-from backend.events import event_bus, SETTINGS_CHANGED
+from backend.events import event_bus, SETTINGS_CHANGED, SCHEDULE_UPDATED
 
 logger = logging.getLogger(__name__)
 
@@ -59,13 +59,14 @@ _state: dict = {
 
 # ── Helper ───────────────────────────────────────────────────────────────────
 
-def _run_and_cache_optimization() -> dict:
+def _run_and_cache_optimization(grid_forecast: list[dict] | None = None) -> dict:
     """Re-run optimizer with current state and cache the result."""
     if not _state["calendar_events"]:
         return _empty_optimization()
 
     result = run_optimization(
         _state["calendar_events"],
+        grid_forecast=grid_forecast,
         alpha=_state["alpha"],
         beta=_state["beta"],
     )
@@ -81,6 +82,13 @@ def _empty_optimization() -> dict:
         "total_carbon_avoided_g": 0,
         "optimization_confidence": 0.0,
     }
+
+
+def record_insight(insight: dict) -> None:
+    """Append an insight to the in-memory store (capped at 50)."""
+    _state["insights"].append(insight)
+    if len(_state["insights"]) > 50:
+        _state["insights"] = _state["insights"][-50:]
 
 
 # ── Endpoints ────────────────────────────────────────────────────────────────
@@ -107,11 +115,11 @@ async def dashboard():
 
     return {
         "current_power": {
-            "ch0": watts[0],
-            "ch1": watts[1],
-            "ch2": watts[2],
-            "ch3": watts[3],
-            "total": sum(watts),
+            "ch0_watts": watts[0],
+            "ch1_watts": watts[1],
+            "ch2_watts": watts[2],
+            "ch3_watts": watts[3],
+            "total_watts": sum(watts),
         },
         "grid": grid,
         "hardware_connected": hardware_fallback.is_hardware_connected,
@@ -153,10 +161,16 @@ async def add_task(task: TaskRequest):
     )
     _state["calendar_events"].append(event)
 
-    update = _run_and_cache_optimization()
+    try:
+        forecast = await grid_cache.get_forecast()
+        update = _run_and_cache_optimization(grid_forecast=forecast)
+    except Exception:
+        logger.warning("Optimization failed after adding task, using empty result", exc_info=True)
+        update = _empty_optimization()
     await ws_manager.broadcast(make_envelope("calendar_update", update))
+    await event_bus.publish(SCHEDULE_UPDATED, update)
 
-    return {"status": "ok", "event_id": event.id, "optimization": update}
+    return {"event_id": event.id, "message": "Task added and schedule re-optimized"}
 
 
 @api_router.post("/calendar/import")
@@ -170,10 +184,23 @@ async def calendar_import(req: CalendarImportRequest):
 
     _state["calendar_events"].extend(events)
 
-    update = _run_and_cache_optimization()
+    try:
+        forecast = await grid_cache.get_forecast()
+        update = _run_and_cache_optimization(grid_forecast=forecast)
+    except Exception:
+        logger.warning("Optimization failed after calendar import, using empty result", exc_info=True)
+        update = _empty_optimization()
     await ws_manager.broadcast(make_envelope("calendar_update", update))
+    await event_bus.publish(SCHEDULE_UPDATED, update)
 
-    return {"status": "ok", "imported": len(events), "optimization": update}
+    deferrable = sum(1 for e in events if e.is_deferrable)
+    non_deferrable = len(events) - deferrable
+    return {
+        "events_imported": len(events),
+        "deferrable_events": deferrable,
+        "non_deferrable_events": non_deferrable,
+        "message": f"Imported {len(events)} events ({deferrable} deferrable, {non_deferrable} fixed). Schedule re-optimized.",
+    }
 
 
 @api_router.post("/sensor")
@@ -196,7 +223,6 @@ async def update_settings(settings: SettingsRequest):
     })
 
     return {
-        "status": "ok",
         "alpha": _state["alpha"],
         "beta": _state["beta"],
     }
@@ -209,4 +235,15 @@ async def get_insights():
 
 @api_router.get("/attention")
 async def get_attention():
-    return {"attention_weights": [], "message": "Placeholder for ML attention visualization"}
+    try:
+        from backend.ml.orchestrator import get_latest_result
+        result = get_latest_result()
+        if result and result.get("attention_weights"):
+            return {
+                "attention_weights": result["attention_weights"],
+                "day_type": result.get("day_type"),
+                "anomaly_score": result.get("anomaly_score"),
+            }
+    except ImportError:
+        pass
+    return {"attention_weights": [], "message": "No ML data yet"}

@@ -34,6 +34,7 @@
   - [POST /api/calendar/import (response)](#post-apicalendarimport-response)
   - [POST /api/sensor (response)](#post-apisensor-response)
   - [POST /api/settings (response)](#post-apisettings-response)
+  - [GET /api/attention](#get-apiattention)
   - [GET /api/insights](#get-apiinsights)
 - [7. Shared Sub-Schemas](#7-shared-sub-schemas)
   - [ChannelReading](#channelreading)
@@ -239,7 +240,7 @@ Valid `type` values: `sensor_update`, `calendar_update`, `grid_status`, `insight
 
 | Field (inside `data`) | Type | Constraints | Description |
 |---|---|---|---|
-| `total_power_watts` | float | >= 0 | Sum of all channel power |
+| `total_watts` | float | >= 0 | Sum of all channel power |
 | `channels` | array[LiveChannel] | length = 4 | Per-channel live snapshot |
 
 **LiveChannel**
@@ -247,10 +248,10 @@ Valid `type` values: `sensor_update`, `calendar_update`, `grid_status`, `insight
 | Field | Type | Constraints | Description |
 |---|---|---|---|
 | `channel_id` | integer | 0 – 3 | Channel index |
-| `zone` | string | non-empty | Room / area |
-| `appliance` | string | non-empty | Appliance name |
-| `power_watts` | float | >= 0 | Current power draw in watts (already multiplied by 120 V) |
-| `is_active` | boolean | — | True if power_watts > 0 |
+| `assigned_zone` | string | non-empty | Room / area |
+| `assigned_appliance` | string | non-empty | Appliance name |
+| `current_watts` | float | >= 0 | Current power draw in watts (already multiplied by 120 V) |
+| `is_active` | boolean | — | True if current_watts > 0 |
 
 **Additional envelope field:**
 
@@ -264,12 +265,12 @@ Valid `type` values: `sensor_update`, `calendar_update`, `grid_status`, `insight
   "timestamp": "2026-02-28T18:30:00Z",
   "simulated": false,
   "data": {
-    "total_power_watts": 4717.2,
+    "total_watts": 4717.2,
     "channels": [
-      { "channel_id": 0, "zone": "kitchen",      "appliance": "inductive_stove",  "power_watts": 518.4,  "is_active": true  },
-      { "channel_id": 1, "zone": "laundry_room",  "appliance": "dryer",            "power_watts": 2400.0, "is_active": true  },
-      { "channel_id": 2, "zone": "garage",        "appliance": "ev_charger",       "power_watts": 0.0,    "is_active": false },
-      { "channel_id": 3, "zone": "bedroom",       "appliance": "air_conditioning", "power_watts": 1800.0, "is_active": true  }
+      { "channel_id": 0, "assigned_zone": "kitchen",      "assigned_appliance": "inductive_stove",  "current_watts": 518.4,  "is_active": true  },
+      { "channel_id": 1, "assigned_zone": "laundry_room",  "assigned_appliance": "dryer",            "current_watts": 2400.0, "is_active": true  },
+      { "channel_id": 2, "assigned_zone": "garage",        "assigned_appliance": "ev_charger",       "current_watts": 0.0,    "is_active": false },
+      { "channel_id": 3, "assigned_zone": "bedroom",       "assigned_appliance": "air_conditioning", "current_watts": 1800.0, "is_active": true  }
     ]
   }
 }
@@ -342,7 +343,7 @@ Valid `type` values: `sensor_update`, `calendar_update`, `grid_status`, `insight
 | Field (inside `data`) | Type | Constraints | Description |
 |---|---|---|---|
 | `current` | GridSnapshot | — | Live grid conditions |
-| `forecast_24h` | array[GridHour] | length = 24 | Hourly forecast starting from hour 0 |
+| `forecast_next_3h` | array[GridHour] | length = 3 | Hourly forecast for the next 3 hours |
 
 **GridSnapshot**
 
@@ -377,7 +378,7 @@ Valid `type` values: `sensor_update`, `calendar_update`, `grid_status`, `insight
       "tou_period": "off_peak",
       "status": "yellow"
     },
-    "forecast_24h": [
+    "forecast_next_3h": [
       {
         "hour": 0,
         "renewable_pct": 35.2,
@@ -390,6 +391,14 @@ Valid `type` values: `sensor_update`, `calendar_update`, `grid_status`, `insight
         "hour": 1,
         "renewable_pct": 33.8,
         "carbon_intensity_gco2_kwh": 334.5,
+        "tou_price_cents_kwh": 12,
+        "tou_period": "super_off_peak",
+        "status": "green"
+      },
+      {
+        "hour": 2,
+        "renewable_pct": 31.4,
+        "carbon_intensity_gco2_kwh": 341.0,
         "tou_price_cents_kwh": 12,
         "tou_period": "super_off_peak",
         "status": "green"
@@ -430,9 +439,11 @@ Valid `type` values: `sensor_update`, `calendar_update`, `grid_status`, `insight
 | Field (inside `data`) | Type | Constraints | Description |
 |---|---|---|---|
 | `channel_id` | integer | 0 – 3 | Channel where anomaly was detected |
-| `zone` | string | non-empty | Room / area |
-| `appliance` | string | non-empty | Appliance name |
-| `anomaly_score` | float | 0.0 – 1.0 | Confidence that this is anomalous (higher = more anomalous) |
+| `assigned_zone` | string | non-empty | Room / area |
+| `assigned_appliance` | string | non-empty | Appliance name |
+| `current_watts` | float | >= 0 | Actual power draw in watts |
+| `expected_watts` | float | >= 0 | Expected normal power draw in watts |
+| `deviation_pct` | float | >= 0 | Percentage deviation from expected |
 | `message` | string | non-empty | Human-readable description |
 
 ```json
@@ -441,10 +452,12 @@ Valid `type` values: `sensor_update`, `calendar_update`, `grid_status`, `insight
   "timestamp": "2026-02-28T18:31:00Z",
   "data": {
     "channel_id": 3,
-    "zone": "bedroom",
-    "appliance": "air_conditioning",
-    "anomaly_score": 0.82,
-    "message": "Unusual power spike on AC"
+    "assigned_zone": "bedroom",
+    "assigned_appliance": "air_conditioning",
+    "current_watts": 2400.0,
+    "expected_watts": 1440.0,
+    "deviation_pct": 66.7,
+    "message": "Unusual power on air_conditioning (2400W vs expected 1440W)"
   }
 }
 ```
@@ -458,7 +471,7 @@ Streamed in chunks. The final chunk has an empty `audio` field and `is_final: tr
 | Field (inside `data`) | Type | Constraints | Description |
 |---|---|---|---|
 | `audio` | string | base64-encoded MP3 data (empty string on final) | Audio chunk payload |
-| `format` | string | "mp3_44100_128" | Audio encoding format |
+| `format` | string | "mp3" | Audio encoding format |
 | `insight_id` | string | non-empty | Links back to the insight being narrated |
 | `is_final` | boolean | — | True on the last chunk (audio will be empty) |
 
@@ -470,7 +483,7 @@ Streamed in chunks. The final chunk has an empty `audio` field and `is_final: tr
   "timestamp": "2026-02-28T18:35:01Z",
   "data": {
     "audio": "SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2...",
-    "format": "mp3_44100_128",
+    "format": "mp3",
     "insight_id": "schedule_optimization_1709164800",
     "is_final": false
   }
@@ -485,7 +498,7 @@ Streamed in chunks. The final chunk has an empty `audio` field and `is_final: tr
   "timestamp": "2026-02-28T18:35:03Z",
   "data": {
     "audio": "",
-    "format": "mp3_44100_128",
+    "format": "mp3",
     "insight_id": "schedule_optimization_1709164800",
     "is_final": true
   }
@@ -498,18 +511,18 @@ Streamed in chunks. The final chunk has an empty `audio` field and `is_final: tr
 
 | Field (inside `data`) | Type | Constraints | Description |
 |---|---|---|---|
-| `day_type` | string | "workday" \| "weekend" \| "holiday" | Classified day type |
-| `anomaly_score` | float | 0.0 – 1.0 | Global anomaly score across all channels |
-| `nilm_active` | array[boolean] | length = 4, indexed by channel_id | Per-channel NILM disaggregation active flag |
+| `model_loaded` | boolean | — | Whether the ML model is loaded and running |
+| `last_training` | string | ISO 8601 UTC | Timestamp of the last inference/training run |
+| `accuracy` | float \| null | 0.0 – 1.0 | Model confidence (day_type_confidence), null if unavailable |
 
 ```json
 {
   "type": "ml_status",
   "timestamp": "2026-02-28T18:30:00Z",
   "data": {
-    "day_type": "workday",
-    "anomaly_score": 0.12,
-    "nilm_active": [true, false, false, true]
+    "model_loaded": true,
+    "last_training": "2026-02-28T18:30:00Z",
+    "accuracy": 0.92
   }
 }
 ```
@@ -719,6 +732,36 @@ Returns an OptimizationResult (same shape as `calendar_update.data`).
 
 ---
 
+### GET /api/attention
+
+| Field | Type | Constraints | Description |
+|---|---|---|---|
+| `attention_weights` | array[float] | >= 0 items | Per-hour attention weights from the TFT model |
+| `day_type` | string \| null | — | Day classification (e.g. "weekday", "weekend") |
+| `anomaly_score` | float \| null | 0.0 – 1.0 | Anomaly detection score |
+| `message` | string \| null | — | Present when no ML data is available |
+
+**With ML data:**
+
+```json
+{
+  "attention_weights": [0.12, 0.08, 0.05, 0.03, 0.02, 0.01, 0.01, 0.04, 0.09, 0.15, 0.18, 0.22],
+  "day_type": "weekday",
+  "anomaly_score": 0.15
+}
+```
+
+**Fallback (no ML data):**
+
+```json
+{
+  "attention_weights": [],
+  "message": "No ML data yet"
+}
+```
+
+---
+
 ### GET /api/insights
 
 | Field | Type | Constraints | Description |
@@ -762,10 +805,10 @@ Used in: sensor_update (Backend → iOS)
 | Field | Type | Constraints | Description |
 |---|---|---|---|
 | `channel_id` | integer | 0 – 3 | Channel index |
-| `zone` | string | non-empty | Room / area |
-| `appliance` | string | non-empty | Appliance name |
-| `power_watts` | float | >= 0 | Watts (amps x 120 V) |
-| `is_active` | boolean | — | power_watts > 0 |
+| `assigned_zone` | string | non-empty | Room / area |
+| `assigned_appliance` | string | non-empty | Appliance name |
+| `current_watts` | float | >= 0 | Watts (amps x 120 V) |
+| `is_active` | boolean | — | current_watts > 0 |
 
 ---
 
@@ -808,7 +851,7 @@ Used in: grid_status.data.current, GET /api/dashboard
 
 ### GridHour
 
-Used in: grid_status.data.forecast_24h, GET /api/forecast
+Used in: grid_status.data.forecast_next_3h, GET /api/forecast
 
 | Field | Type | Constraints | Description |
 |---|---|---|---|

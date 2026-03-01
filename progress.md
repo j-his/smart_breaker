@@ -55,6 +55,7 @@
 | 38. WattTime API integration | DONE | Async client with token caching, GridCache hybrid (WattTime carbon + local TOU), 4/4 tests |
 | 39. Hardware-compatible sensor model | DONE | Optional zone/appliance with config defaults, power_watts field, 2/2 tests |
 | 40. Backend 100% verification | DONE | 109/109 tests passing, WattTime live, hardware-ready |
+| 41. ML inference pipeline + event bus wiring | DONE | build_realtime_window(), orchestrator.py, inference_loop, event bus publishing (SCHEDULE_UPDATED, GRID_STATUS_CHANGED, ML_INFERENCE_COMPLETE, ANOMALY_DETECTED), /api/attention real data, /api/insights populated, Monte Carlo in optimizer loop, run_in_executor for MILP, TTS finally fix, demo day cycling — 115/115 tests |
 
 ## Checklists
 

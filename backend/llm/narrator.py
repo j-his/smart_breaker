@@ -126,6 +126,13 @@ async def _broadcast_and_speak(insight: dict) -> None:
     await ws_manager.broadcast(make_envelope("insight", insight))
     logger.info("Narrator insight [%s]: %s", insight["category"], insight["message"][:80])
 
+    # Record insight in API state for /api/insights endpoint
+    try:
+        from backend.api.routes import record_insight
+        record_insight(insight)
+    except Exception:
+        logger.debug("Failed to record insight to API state", exc_info=True)
+
     try:
         await log_insight(insight["message"], insight["category"], insight["severity"])
     except Exception:

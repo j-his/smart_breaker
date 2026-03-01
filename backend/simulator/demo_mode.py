@@ -24,6 +24,7 @@ class DemoController:
         self.is_running: bool = False
         self._task: asyncio.Task | None = None
         self._df = None  # pandas DataFrame, loaded on start
+        self._day: int = 0  # cycling day counter
 
     def start(self, start_hour: int = 6) -> None:
         """Load parquet and start the replay loop.
@@ -69,10 +70,14 @@ class DemoController:
                 # Advance 15 simulated minutes
                 sim_minutes += 15
 
-                # Wrap at midnight (1440 min) → back to start hour
+                # Wrap at midnight (1440 min) → back to start hour, advance day
                 if sim_minutes >= 1440:
                     sim_minutes = self._start_hour * 60
-                    logger.debug("Demo mode wrapped to hour %d", self._start_hour)
+                    rows_per_day = 1440
+                    total_days = len(self._df) // rows_per_day if self._df is not None else 1
+                    self._day = (self._day + 1) % max(total_days, 1)
+                    logger.debug("Demo mode wrapped to hour %d, day %d",
+                                 self._start_hour, self._day)
 
                 await asyncio.sleep(1)
 
@@ -89,11 +94,8 @@ class DemoController:
         We use sim_minutes as offset within a single day, picking a random day.
         """
         rows_per_day = 1440
-        total_days = len(self._df) // rows_per_day if self._df is not None else 1
 
-        # Cycle through days based on how many times we've wrapped
-        day = 0  # use first day by default
-        row_idx = (day * rows_per_day + sim_minutes) % len(self._df)
+        row_idx = (self._day * rows_per_day + sim_minutes) % len(self._df)
         row = self._df.iloc[row_idx]
 
         channels = []

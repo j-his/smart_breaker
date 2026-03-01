@@ -66,15 +66,14 @@ async def speak_insight(text: str, insight_id: str) -> None:
                 "insight_id": insight_id,
                 "is_final": False,
             }))
-
-        # Send final marker
+        logger.info("TTS complete for insight %s", insight_id)
+    except Exception as e:
+        logger.error("TTS speak_insight failed: %s", e)
+    finally:
+        # Always send final marker so the iOS client knows streaming is done
         await ws_manager.broadcast(make_envelope("tts_audio", {
             "audio": "",
             "format": "mp3",
             "insight_id": insight_id,
             "is_final": True,
         }))
-        logger.info("TTS complete for insight %s", insight_id)
-
-    except Exception as e:
-        logger.error("TTS speak_insight failed: %s", e)

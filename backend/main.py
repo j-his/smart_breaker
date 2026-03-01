@@ -30,7 +30,7 @@ from backend.llm.chat import chat_stream
 from backend.llm.narrator import on_schedule_updated, on_anomaly_detected, on_grid_shift
 from backend.simulator.demo_mode import demo_controller
 from backend.db import init_db
-from backend.scheduler import optimization_loop, grid_refresh_loop
+from backend.scheduler import optimization_loop, grid_refresh_loop, inference_loop
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +64,14 @@ async def lifespan(app: FastAPI):
     event_bus.subscribe(GRID_STATUS_CHANGED, on_grid_shift)
     logger.info("Narrator subscribed to event bus")
 
+    # Initialize ML inference pipeline (non-fatal if checkpoint is missing)
+    try:
+        from backend.ml.orchestrator import init_inference
+        init_inference()
+        logger.info("ML inference pipeline ready")
+    except Exception as e:
+        logger.warning("ML inference init skipped: %s", e)
+
     # Start demo mode if enabled
     if config.DEMO_MODE:
         demo_controller.start(6)
@@ -73,8 +81,9 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(_synthetic_data_loop()),
         asyncio.create_task(optimization_loop()),
         asyncio.create_task(grid_refresh_loop()),
+        asyncio.create_task(inference_loop()),
     ]
-    logger.info("EnergyAI backend started (3 background loops)")
+    logger.info("EnergyAI backend started (4 background loops)")
     yield
 
     # Shutdown
@@ -161,9 +170,18 @@ async def ws_chat(websocket: WebSocket):
                     "total_watts": float(latest[4]) if len(latest) > 4 else sum(float(latest[i]) for i in range(4)),
                 }
 
+            # Get latest ML result if available
+            ml_result = None
+            try:
+                from backend.ml.orchestrator import get_latest_result
+                ml_result = get_latest_result()
+            except ImportError:
+                pass
+
             system_prompt = build_system_prompt(
                 sensor_state=sensor_state,
                 grid_status=await grid_cache.get_current(),
+                ml_result=ml_result,
                 optimization=_state.get("last_optimization"),
             )
 

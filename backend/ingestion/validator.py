@@ -75,6 +75,7 @@ class SensorReading(BaseModel):
             "device_id": self.device_id,
             "timestamp": self.timestamp,
             "simulated": simulated,
+            "total_watts": sum(ch.get_watts() for ch in self.channels),
             "channels": [
                 {
                     "channel_id": ch.channel_id,
