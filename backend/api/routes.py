@@ -41,6 +41,7 @@ class TaskRequest(BaseModel):
 class SettingsRequest(BaseModel):
     alpha: float | None = None
     beta: float | None = None
+    narration_enabled: bool | None = None
 
 
 class CalendarImportRequest(BaseModel):
@@ -56,6 +57,7 @@ _state: dict = {
     "alpha": 0.5,
     "beta": 0.5,
     "insights": [],
+    "narration_enabled": True,
 }
 
 
@@ -223,15 +225,19 @@ async def update_settings(settings: SettingsRequest):
         _state["alpha"] = settings.alpha
     if settings.beta is not None:
         _state["beta"] = settings.beta
+    if settings.narration_enabled is not None:
+        _state["narration_enabled"] = settings.narration_enabled
 
     await event_bus.publish(SETTINGS_CHANGED, {
         "alpha": _state["alpha"],
         "beta": _state["beta"],
+        "narration_enabled": _state["narration_enabled"],
     })
 
     return {
         "alpha": _state["alpha"],
         "beta": _state["beta"],
+        "narration_enabled": _state["narration_enabled"],
     }
 
 
@@ -269,7 +275,7 @@ async def calendar_ics():
             "BEGIN:VCALENDAR\r\n"
             "PRODID:-//EnergyAI//Optimized Schedule//EN\r\n"
             "VERSION:2.0\r\n"
-            "X-WR-CALNAME:EnergyAI Schedule\r\n"
+            "X-WR-CALNAME:SaveBox Calendar\r\n"
             "END:VCALENDAR\r\n"
         )
     else:

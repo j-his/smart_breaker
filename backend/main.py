@@ -183,6 +183,7 @@ async def ws_chat(websocket: WebSocket):
                 grid_status=await grid_cache.get_current(),
                 ml_result=ml_result,
                 optimization=_state.get("last_optimization"),
+                recent_insights=_state.get("insights", []),
             )
 
             # Stream LLM response
@@ -199,6 +200,16 @@ async def ws_chat(websocket: WebSocket):
                 websocket,
                 make_envelope("chat_response", {"message": full_text, "done": True}),
             )
+
+            # Speak the response aloud if narration is enabled
+            if _state.get("narration_enabled", True) and full_text.strip():
+                try:
+                    import uuid
+                    from backend.tts.voice import speak_to_client
+                    msg_id = str(uuid.uuid4())[:8]
+                    await speak_to_client(full_text, websocket, msg_id)
+                except Exception:
+                    logger.debug("Chat TTS failed", exc_info=True)
 
     except WebSocketDisconnect:
         await ws_manager.disconnect(websocket)

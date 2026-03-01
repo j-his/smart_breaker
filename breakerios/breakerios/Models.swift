@@ -364,11 +364,23 @@ struct TaskResponse: Codable {
 struct SettingsRequest: Codable {
     let alpha: Double?
     let beta: Double?
+    let narrationEnabled: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case alpha, beta
+        case narrationEnabled = "narration_enabled"
+    }
 }
 
 struct SettingsResponse: Codable {
     let alpha: Double
     let beta: Double
+    let narrationEnabled: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case alpha, beta
+        case narrationEnabled = "narration_enabled"
+    }
 }
 
 struct InsightsResponse: Codable {

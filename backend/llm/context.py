@@ -11,6 +11,7 @@ def build_system_prompt(
     ml_result: dict | None = None,
     optimization: dict | None = None,
     channel_assignments: list[dict] | None = None,
+    recent_insights: list[dict] | None = None,
 ) -> str:
     """Build a system prompt for the EnergyAI chat LLM.
 
@@ -38,6 +39,9 @@ def build_system_prompt(
 
     if optimization is not None:
         sections.append(_format_current_schedule(optimization))
+
+    if recent_insights:
+        sections.append(_format_recent_insights(recent_insights))
 
     return "\n\n".join(sections)
 
@@ -144,4 +148,17 @@ def _format_current_schedule(optimization: dict) -> str:
     carbon = optimization.get("total_carbon_avoided_g", 0)
     if savings or carbon:
         lines.append(f"- Projected savings: {savings:.1f}¢, {carbon:.0f}g CO2 avoided")
+    return "\n".join(lines)
+
+
+def _format_recent_insights(insights: list[dict]) -> str:
+    lines = ["## Recent Narrator Insights"]
+    for ins in insights[-5:]:
+        category = ins.get("category", "general")
+        severity = ins.get("severity", "info")
+        message = ins.get("message", "")
+        lines.append(f"- [{severity}] ({category}) {message}")
+    lines.append(
+        "Reference these insights naturally if the user asks about recent events."
+    )
     return "\n".join(lines)

@@ -44,6 +44,33 @@ async def text_to_speech_stream(
             yield base64.b64encode(chunk).decode("ascii")
 
 
+async def speak_to_client(text: str, websocket, message_id: str) -> None:
+    """Convert text to speech and send audio to a specific WebSocket client.
+
+    Used for chat responses — only the person who asked hears the answer.
+    """
+    if not config.ELEVENLABS_TTS_ENABLED or not config.ELEVENLABS_API_KEY:
+        return
+
+    try:
+        async for b64_chunk in text_to_speech_stream(text, message_id):
+            await ws_manager.send_to(websocket, make_envelope("tts_audio", {
+                "audio": b64_chunk,
+                "format": "mp3",
+                "insight_id": message_id,
+                "is_final": False,
+            }))
+    except Exception as e:
+        logger.error("TTS speak_to_client failed: %s", e)
+    finally:
+        await ws_manager.send_to(websocket, make_envelope("tts_audio", {
+            "audio": "",
+            "format": "mp3",
+            "insight_id": message_id,
+            "is_final": True,
+        }))
+
+
 async def speak_insight(text: str, insight_id: str) -> None:
     """Convert insight text to speech and broadcast via WebSocket.
 

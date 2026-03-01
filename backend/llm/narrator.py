@@ -17,8 +17,21 @@ from backend.llm.chat import chat_completion
 logger = logging.getLogger(__name__)
 
 
+def _is_narration_enabled() -> bool:
+    """Check whether narration is enabled in app state."""
+    try:
+        from backend.api.routes import _state
+        return _state.get("narration_enabled", True)
+    except ImportError:
+        return True
+
+
 async def on_schedule_updated(event: Event) -> None:
     """Handle SCHEDULE_UPDATED events — generate insight about moved tasks."""
+    if not _is_narration_enabled():
+        logger.debug("Narration disabled, skipping schedule insight")
+        return
+
     data = event.data
     optimized = data.get("optimized_events", [])
 
@@ -47,6 +60,10 @@ async def on_schedule_updated(event: Event) -> None:
 
 async def on_anomaly_detected(event: Event) -> None:
     """Handle ANOMALY_DETECTED events — warn about unusual power usage."""
+    if not _is_narration_enabled():
+        logger.debug("Narration disabled, skipping anomaly insight")
+        return
+
     data = event.data
     channel = data.get("channel_id", "unknown")
     watts = data.get("watts", 0)
@@ -66,6 +83,10 @@ async def on_anomaly_detected(event: Event) -> None:
 
 async def on_grid_shift(event: Event) -> None:
     """Handle GRID_STATUS_CHANGED events — inform about grid status changes."""
+    if not _is_narration_enabled():
+        logger.debug("Narration disabled, skipping grid insight")
+        return
+
     data = event.data
     old_status = data.get("old_status", "unknown")
     new_status = data.get("new_status", "unknown")

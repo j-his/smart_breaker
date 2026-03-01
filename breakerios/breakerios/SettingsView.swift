@@ -205,6 +205,19 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                Section("Narration") {
+                    Toggle("Enable Narration", isOn: $viewModel.narrationEnabled)
+
+                    Text("When enabled, the AI will narrate energy insights and speak them aloud.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Button("Save") {
+                        Task { await viewModel.saveSettings() }
+                    }
+                    .disabled(viewModel.isSaving)
+                }
+
                 Section("Notifications") {
                     Toggle("Anomaly Alerts", isOn: $viewModel.anomalyAlertsEnabled)
                     Toggle("Grid Status Changes", isOn: $viewModel.gridStatusAlertsEnabled)
@@ -310,6 +323,7 @@ class SettingsViewModel: ObservableObject {
     @Published var isConnected: Bool = false
     @Published var connectionTestResult: String?
     @Published var isSaving = false
+    @Published var narrationEnabled: Bool = true
     @Published var anomalyAlertsEnabled: Bool = true
     @Published var gridStatusAlertsEnabled: Bool = true
     @Published var optimizationAlertsEnabled: Bool = true
@@ -346,7 +360,7 @@ class SettingsViewModel: ObservableObject {
         isSaving = true
         persistToUserDefaults()
 
-        let request = SettingsRequest(alpha: alpha, beta: beta)
+        let request = SettingsRequest(alpha: alpha, beta: beta, narrationEnabled: narrationEnabled)
         _ = try? await APIClient.shared.updateSettings(request)
         isSaving = false
     }
@@ -361,6 +375,7 @@ class SettingsViewModel: ObservableObject {
         UserDefaults.standard.set(serverURL, forKey: "serverURL")
         UserDefaults.standard.set(alpha, forKey: "alpha")
         UserDefaults.standard.set(beta, forKey: "beta")
+        UserDefaults.standard.set(narrationEnabled, forKey: "narrationEnabled")
         UserDefaults.standard.set(anomalyAlertsEnabled, forKey: "anomalyAlerts")
         UserDefaults.standard.set(gridStatusAlertsEnabled, forKey: "gridStatusAlerts")
         UserDefaults.standard.set(optimizationAlertsEnabled, forKey: "optimizationAlerts")
@@ -370,6 +385,7 @@ class SettingsViewModel: ObservableObject {
     func resetToDefaults() {
         alpha = 0.5
         beta = 0.5
+        narrationEnabled = true
         anomalyAlertsEnabled = true
         gridStatusAlertsEnabled = true
         optimizationAlertsEnabled = true
@@ -388,6 +404,7 @@ class SettingsViewModel: ObservableObject {
             beta = UserDefaults.standard.double(forKey: "beta")
         }
 
+        narrationEnabled = UserDefaults.standard.object(forKey: "narrationEnabled") as? Bool ?? true
         anomalyAlertsEnabled = UserDefaults.standard.object(forKey: "anomalyAlerts") as? Bool ?? true
         gridStatusAlertsEnabled = UserDefaults.standard.object(forKey: "gridStatusAlerts") as? Bool ?? true
         optimizationAlertsEnabled = UserDefaults.standard.object(forKey: "optimizationAlerts") as? Bool ?? true
