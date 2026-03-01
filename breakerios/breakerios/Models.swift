@@ -243,7 +243,7 @@ extension Array where Element == GridHour {
             let isOffPeak = hour < 7 || hour >= 21
             let isSuperOffPeak = hour < 7
             let isPeak = hour >= 16 && hour < 21
-            
+
             return GridHour(
                 hour: hour,
                 renewablePct: isSuperOffPeak ? Float.random(in: 75...95) : (isOffPeak ? Float.random(in: 60...80) : Float.random(in: 30...50)),
@@ -253,5 +253,153 @@ extension Array where Element == GridHour {
                 status: isPeak ? .red : (isSuperOffPeak ? .green : .yellow)
             )
         }
+    }
+}
+
+// MARK: - WebSocket Envelope Decoding
+
+struct WSTypeOnly: Decodable {
+    let type: String
+}
+
+struct WSTypedEnvelope<T: Decodable>: Decodable {
+    let type: String
+    let timestamp: String
+    let data: T
+}
+
+// MARK: - WebSocket Data Types
+
+struct SensorUpdateData: Codable {
+    let deviceId: String
+    let timestamp: String
+    let simulated: Bool
+    let totalWatts: Float
+    let channels: [LiveChannel]
+}
+
+struct GridStatusUpdate: Codable {
+    let current: GridSnapshot
+    let forecastNext3h: [GridHour]
+}
+
+struct AnomalyAlert: Codable, Identifiable {
+    let channelId: Int
+    let assignedZone: String
+    let assignedAppliance: String
+    let currentWatts: Float
+    let expectedWatts: Float
+    let deviationPct: Float?
+    let message: String
+
+    var id: String { "\(channelId)-\(currentWatts)" }
+}
+
+struct TTSAudioChunk: Codable {
+    let audio: String
+    let format: String
+    let insightId: String
+    let isFinal: Bool
+}
+
+// MARK: - Chat Types
+
+struct ChatMessage: Identifiable {
+    let id = UUID()
+    let role: ChatRole
+    var text: String
+    let timestamp: Date
+}
+
+enum ChatRole {
+    case user, assistant
+}
+
+struct ChatResponseData: Codable {
+    let chunk: String?
+    let message: String?
+    let done: Bool
+}
+
+// MARK: - REST Request/Response Types
+
+struct HealthResponse: Codable {
+    let status: String
+    let hardwareConnected: Bool
+    let bufferFill: String
+    let wsClients: Int
+    let timestamp: String
+}
+
+struct ForecastResponse: Codable {
+    let gridForecast24h: [GridHour]
+}
+
+struct TaskRequest: Codable {
+    let title: String
+    let channelId: Int?
+    let estimatedWatts: Int?
+    let estimatedDurationMin: Int?
+    let deadline: String?
+    let isDeferrable: Bool?
+    let priority: String?
+}
+
+struct TaskResponse: Codable {
+    let eventId: String
+    let message: String
+}
+
+struct SettingsRequest: Codable {
+    let alpha: Double?
+    let beta: Double?
+}
+
+struct SettingsResponse: Codable {
+    let alpha: Double
+    let beta: Double
+}
+
+struct InsightsResponse: Codable {
+    let insights: [Insight]
+}
+
+struct CalendarImportRequest: Codable {
+    let icalData: String?
+    let jsonEvents: [[String: String]]?
+}
+
+struct CalendarImportResponse: Codable {
+    let eventsImported: Int
+    let deferrableEvents: Int
+    let nonDeferrableEvents: Int
+    let message: String
+}
+
+// MARK: - Loading State
+
+enum LoadingState: Equatable {
+    case idle, loading, loaded, error(String)
+}
+
+// MARK: - API Error
+
+enum APIError: LocalizedError {
+    case invalidURL
+    case networkError(Error)
+    case decodingError(Error)
+    case serverError(Int, String?)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidURL: return "Invalid server URL"
+        case .networkError(let e): return "Network error: \(e.localizedDescription)"
+        case .decodingError(let e): return "Data error: \(e.localizedDescription)"
+        case .serverError(let code, let msg): return "Server error \(code): \(msg ?? "Unknown")"
+        }
+    }
+
+    static func == (lhs: APIError, rhs: APIError) -> Bool {
+        lhs.localizedDescription == rhs.localizedDescription
     }
 }

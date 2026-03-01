@@ -10,14 +10,17 @@ import Combine
 
 struct SettingsView: View {
     @StateObject private var viewModel = SettingsViewModel()
-    
+
     var body: some View {
         NavigationStack {
             Form {
                 Section("Device Configuration") {
                     ForEach(0..<4) { channelId in
                         NavigationLink {
-                            ChannelConfigView(channelId: channelId, config: viewModel.channelConfigs[channelId])
+                            ChannelConfigView(channelId: channelId, config: viewModel.channelConfigs[channelId]) { updated in
+                                viewModel.channelConfigs[channelId] = updated
+                                viewModel.saveChannelConfigs()
+                            }
                         } label: {
                             HStack {
                                 Text("Channel \(channelId)")
@@ -35,7 +38,7 @@ struct SettingsView: View {
                         }
                     }
                 }
-                
+
                 Section("Optimization Weights") {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
@@ -46,15 +49,15 @@ struct SettingsView: View {
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
-                        
+
                         Slider(value: $viewModel.alpha, in: 0...1, step: 0.1)
-                        
+
                         Text("Higher values prioritize cost savings over carbon reduction")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                     .padding(.vertical, 4)
-                    
+
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             Text("Carbon Priority (β)")
@@ -64,25 +67,27 @@ struct SettingsView: View {
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
-                        
+
                         Slider(value: $viewModel.beta, in: 0...1, step: 0.1)
-                        
+
                         Text("Higher values prioritize carbon reduction over cost savings")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                     .padding(.vertical, 4)
-                }
-                
-                Section("Server Configuration") {
-                    HStack {
-                        Text("Server URL")
-                        Spacer()
-                        Text(viewModel.serverURL)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+
+                    Button("Save Weights") {
+                        Task { await viewModel.saveSettings() }
                     }
-                    
+                    .disabled(viewModel.isSaving)
+                }
+
+                Section("Server Configuration") {
+                    TextField("Server URL", text: $viewModel.serverURL)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.URL)
+
                     HStack {
                         Text("Connection")
                         Spacer()
@@ -95,20 +100,26 @@ struct SettingsView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    
+
                     Button("Test Connection") {
                         Task {
                             await viewModel.testConnection()
                         }
                     }
+
+                    if let result = viewModel.connectionTestResult {
+                        Text(result)
+                            .font(.caption)
+                            .foregroundStyle(viewModel.isConnected ? .green : .red)
+                    }
                 }
-                
+
                 Section("Notifications") {
                     Toggle("Anomaly Alerts", isOn: $viewModel.anomalyAlertsEnabled)
                     Toggle("Grid Status Changes", isOn: $viewModel.gridStatusAlertsEnabled)
                     Toggle("Optimization Complete", isOn: $viewModel.optimizationAlertsEnabled)
                 }
-                
+
                 Section {
                     Button("Reset to Defaults") {
                         viewModel.resetToDefaults()
@@ -117,6 +128,9 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .onDisappear {
+                viewModel.persistToUserDefaults()
+            }
         }
     }
 }
@@ -125,43 +139,44 @@ struct ChannelConfigView: View {
     let channelId: Int
     @State var config: ChannelConfig
     @Environment(\.dismiss) var dismiss
-    
+    let onSave: (ChannelConfig) -> Void
+
     var body: some View {
         Form {
             Section("Channel \(channelId)") {
                 TextField("Zone Name", text: $config.zone)
                     .autocorrectionDisabled()
-                
+
                 TextField("Appliance", text: $config.appliance)
                     .autocorrectionDisabled()
             }
-            
+
             Section("Quick Presets") {
                 Button("Bathroom - Water Heater") {
                     config.zone = "Bathroom"
                     config.appliance = "Water Heater"
                 }
-                
+
                 Button("Kitchen - Induction Stove") {
                     config.zone = "Kitchen"
                     config.appliance = "Induction Stove"
                 }
-                
+
                 Button("Laundry - Dryer") {
                     config.zone = "Laundry Room"
                     config.appliance = "Dryer"
                 }
-                
+
                 Button("Garage - EV Charger") {
                     config.zone = "Garage"
                     config.appliance = "EV Charger"
                 }
-                
+
                 Button("Living Room - Air Conditioning") {
                     config.zone = "Living Room"
                     config.appliance = "Air Conditioning"
                 }
-                
+
                 Button("Bedroom - Air Conditioning") {
                     config.zone = "Bedroom"
                     config.appliance = "Air Conditioning"
@@ -173,7 +188,7 @@ struct ChannelConfigView: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save") {
-                    // TODO: Save to UserDefaults or API
+                    onSave(config)
                     dismiss()
                 }
             }
@@ -181,49 +196,103 @@ struct ChannelConfigView: View {
     }
 }
 
-struct ChannelConfig {
+struct ChannelConfig: Codable {
     var zone: String
     var appliance: String
 }
 
-@MainActor
 class SettingsViewModel: ObservableObject {
-    @Published var channelConfigs: [ChannelConfig] = [
-        ChannelConfig(zone: "Bathroom", appliance: "Water Heater"),
-        ChannelConfig(zone: "Kitchen", appliance: "Induction Stove"),
-        ChannelConfig(zone: "Living Room", appliance: "Air Conditioning"),
-        ChannelConfig(zone: "Garage", appliance: "EV Charger")
-    ]
-    
+    @Published var channelConfigs: [ChannelConfig] = []
     @Published var alpha: Double = 0.5
     @Published var beta: Double = 0.5
-    
     @Published var serverURL: String = "http://localhost:8000"
     @Published var isConnected: Bool = false
-    
+    @Published var connectionTestResult: String?
+    @Published var isSaving = false
     @Published var anomalyAlertsEnabled: Bool = true
     @Published var gridStatusAlertsEnabled: Bool = true
     @Published var optimizationAlertsEnabled: Bool = true
-    
-    func testConnection() async {
-        // TODO: Implement actual connection test
-        isConnected = true
+
+    init() {
+        loadFromUserDefaults()
     }
-    
+
+    func testConnection() async {
+        do {
+            persistToUserDefaults()
+            let health = try await APIClient.shared.getHealth()
+            isConnected = true
+            connectionTestResult = "Connected! Buffer: \(health.bufferFill), \(health.wsClients) client(s)"
+        } catch {
+            isConnected = false
+            connectionTestResult = error.localizedDescription
+        }
+    }
+
+    func saveSettings() async {
+        isSaving = true
+        persistToUserDefaults()
+
+        let request = SettingsRequest(alpha: alpha, beta: beta)
+        _ = try? await APIClient.shared.updateSettings(request)
+        isSaving = false
+    }
+
+    func saveChannelConfigs() {
+        if let data = try? JSONEncoder().encode(channelConfigs) {
+            UserDefaults.standard.set(data, forKey: "channelConfigs")
+        }
+    }
+
+    func persistToUserDefaults() {
+        UserDefaults.standard.set(serverURL, forKey: "serverURL")
+        UserDefaults.standard.set(alpha, forKey: "alpha")
+        UserDefaults.standard.set(beta, forKey: "beta")
+        UserDefaults.standard.set(anomalyAlertsEnabled, forKey: "anomalyAlerts")
+        UserDefaults.standard.set(gridStatusAlertsEnabled, forKey: "gridStatusAlerts")
+        UserDefaults.standard.set(optimizationAlertsEnabled, forKey: "optimizationAlerts")
+        saveChannelConfigs()
+    }
+
     func resetToDefaults() {
         alpha = 0.5
         beta = 0.5
         anomalyAlertsEnabled = true
         gridStatusAlertsEnabled = true
         optimizationAlertsEnabled = true
-        
-        channelConfigs = [
-            ChannelConfig(zone: "Bathroom", appliance: "Water Heater"),
-            ChannelConfig(zone: "Kitchen", appliance: "Induction Stove"),
-            ChannelConfig(zone: "Living Room", appliance: "Air Conditioning"),
-            ChannelConfig(zone: "Garage", appliance: "EV Charger")
-        ]
+
+        channelConfigs = Self.defaultConfigs
+        persistToUserDefaults()
     }
+
+    private func loadFromUserDefaults() {
+        serverURL = UserDefaults.standard.string(forKey: "serverURL") ?? "http://localhost:8000"
+
+        if UserDefaults.standard.object(forKey: "alpha") != nil {
+            alpha = UserDefaults.standard.double(forKey: "alpha")
+        }
+        if UserDefaults.standard.object(forKey: "beta") != nil {
+            beta = UserDefaults.standard.double(forKey: "beta")
+        }
+
+        anomalyAlertsEnabled = UserDefaults.standard.object(forKey: "anomalyAlerts") as? Bool ?? true
+        gridStatusAlertsEnabled = UserDefaults.standard.object(forKey: "gridStatusAlerts") as? Bool ?? true
+        optimizationAlertsEnabled = UserDefaults.standard.object(forKey: "optimizationAlerts") as? Bool ?? true
+
+        if let data = UserDefaults.standard.data(forKey: "channelConfigs"),
+           let configs = try? JSONDecoder().decode([ChannelConfig].self, from: data) {
+            channelConfigs = configs
+        } else {
+            channelConfigs = Self.defaultConfigs
+        }
+    }
+
+    private static let defaultConfigs = [
+        ChannelConfig(zone: "Kitchen", appliance: "Induction Stove"),
+        ChannelConfig(zone: "Laundry Room", appliance: "Dryer"),
+        ChannelConfig(zone: "Garage", appliance: "EV Charger"),
+        ChannelConfig(zone: "Bedroom", appliance: "Air Conditioning"),
+    ]
 }
 
 #Preview {

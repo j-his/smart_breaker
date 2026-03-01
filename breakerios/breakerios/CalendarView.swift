@@ -7,10 +7,11 @@
 
 import SwiftUI
 import Combine
+import UniformTypeIdentifiers
 
 struct CalendarView: View {
     @StateObject private var viewModel = CalendarViewModel()
-    
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -20,14 +21,14 @@ struct CalendarView: View {
                         OptimizationSummaryCard(result: optimization)
                             .padding(.horizontal)
                     }
-                    
+
                     // 24-hour forecast
                     VStack(alignment: .leading, spacing: 12) {
                         Text("24-Hour Grid Forecast")
                             .font(.title3)
                             .fontWeight(.semibold)
                             .padding(.horizontal)
-                        
+
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 12) {
                                 ForEach(viewModel.forecast24h, id: \.hour) { forecast in
@@ -37,7 +38,7 @@ struct CalendarView: View {
                             .padding(.horizontal)
                         }
                     }
-                    
+
                     // Optimized Events
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
@@ -45,7 +46,14 @@ struct CalendarView: View {
                                 .font(.title2)
                                 .fontWeight(.bold)
                             Spacer()
-                            
+
+                            Button(action: {
+                                viewModel.showingImport = true
+                            }) {
+                                Image(systemName: "square.and.arrow.down")
+                                    .font(.title2)
+                            }
+
                             Button(action: {
                                 viewModel.showingAddTask = true
                             }) {
@@ -54,7 +62,7 @@ struct CalendarView: View {
                             }
                         }
                         .padding(.horizontal)
-                        
+
                         if let events = viewModel.optimization?.optimizedEvents, !events.isEmpty {
                             ForEach(events) { event in
                                 OptimizedEventCard(event: event)
@@ -75,7 +83,27 @@ struct CalendarView: View {
             }
             .navigationTitle("Energy Schedule")
             .sheet(isPresented: $viewModel.showingAddTask) {
-                AddTaskView()
+                AddTaskView { title, channelId, watts, duration in
+                    await viewModel.addTask(title: title, channelId: channelId, estimatedWatts: watts, durationMinutes: duration)
+                }
+            }
+            .fileImporter(
+                isPresented: $viewModel.showingImport,
+                allowedContentTypes: [UTType.calendarEvent, UTType(filenameExtension: "ics") ?? .calendarEvent]
+            ) { result in
+                Task {
+                    switch result {
+                    case .success(let url):
+                        await viewModel.importCalendar(from: url)
+                    case .failure:
+                        break
+                    }
+                }
+            }
+            .overlay {
+                if viewModel.loadingState == .loading {
+                    ProgressView()
+                }
             }
         }
         .task {
@@ -86,7 +114,7 @@ struct CalendarView: View {
 
 struct OptimizationSummaryCard: View {
     let result: OptimizationResult
-    
+
     var body: some View {
         VStack(spacing: 16) {
             HStack {
@@ -104,9 +132,9 @@ struct OptimizationSummaryCard: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                
+
                 Spacer()
-                
+
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("Carbon Avoided")
                         .font(.caption)
@@ -122,9 +150,9 @@ struct OptimizationSummaryCard: View {
                     }
                 }
             }
-            
+
             Divider()
-            
+
             HStack {
                 Image(systemName: "sparkles")
                     .foregroundStyle(.purple)
@@ -146,14 +174,14 @@ struct OptimizationSummaryCard: View {
 
 struct ForecastHourCard: View {
     let forecast: GridHour
-    
+
     var body: some View {
         VStack(spacing: 8) {
             Text(hourText)
                 .font(.caption)
                 .fontWeight(.semibold)
                 .foregroundStyle(.secondary)
-            
+
             Circle()
                 .fill(statusColor)
                 .frame(width: 32, height: 32)
@@ -163,11 +191,11 @@ struct ForecastHourCard: View {
                         .fontWeight(.bold)
                         .foregroundStyle(.white)
                 )
-            
+
             Text(String(format: "%.0f%%", forecast.renewablePct))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
-            
+
             Image(systemName: "leaf.fill")
                 .font(.caption2)
                 .foregroundStyle(.green.opacity(Double(forecast.renewablePct / 100)))
@@ -183,7 +211,7 @@ struct ForecastHourCard: View {
                 )
         )
     }
-    
+
     private var hourText: String {
         if forecast.hour == 0 {
             return "12 AM"
@@ -195,7 +223,7 @@ struct ForecastHourCard: View {
             return "\(forecast.hour - 12) PM"
         }
     }
-    
+
     private var statusColor: Color {
         switch forecast.status {
         case .green: return .green
@@ -207,23 +235,23 @@ struct ForecastHourCard: View {
 
 struct OptimizedEventCard: View {
     let event: OptimizedEvent
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(event.title)
                         .font(.headline)
-                    
+
                     if let channelId = event.channelId {
                         Text("Channel \(channelId)")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
-                
+
                 Spacer()
-                
+
                 if event.wasMoved {
                     Label("Rescheduled", systemImage: "calendar.badge.clock")
                         .font(.caption)
@@ -236,7 +264,7 @@ struct OptimizedEventCard: View {
                         )
                 }
             }
-            
+
             // Time display
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -247,11 +275,11 @@ struct OptimizedEventCard: View {
                         .font(.caption)
                         .fontWeight(.medium)
                 }
-                
+
                 Image(systemName: "arrow.right")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                
+
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Optimized")
                         .font(.caption2)
@@ -261,16 +289,16 @@ struct OptimizedEventCard: View {
                         .fontWeight(.medium)
                         .foregroundStyle(event.wasMoved ? .blue : .primary)
                 }
-                
+
                 Spacer()
-                
+
                 Circle()
                     .fill(statusColor)
                     .frame(width: 8, height: 8)
             }
-            
+
             Divider()
-            
+
             // Savings
             HStack(spacing: 20) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -282,7 +310,7 @@ struct OptimizedEventCard: View {
                         .fontWeight(.semibold)
                         .foregroundStyle(.green)
                 }
-                
+
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Carbon Avoided")
                         .font(.caption2)
@@ -292,14 +320,14 @@ struct OptimizedEventCard: View {
                         .fontWeight(.semibold)
                         .foregroundStyle(.green)
                 }
-                
+
                 Spacer()
-                
+
                 Text(String(format: "%.0fW", event.estimatedWatts))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
-            
+
             // Reason
             Text(event.reason)
                 .font(.caption)
@@ -312,7 +340,7 @@ struct OptimizedEventCard: View {
                 .fill(Color(.secondarySystemBackground))
         )
     }
-    
+
     private var statusColor: Color {
         switch event.gridStatusAtTime {
         case .green: return .green
@@ -320,13 +348,13 @@ struct OptimizedEventCard: View {
         case .red: return .red
         }
     }
-    
+
     private func formatTime(_ isoString: String) -> String {
         let formatter = ISO8601DateFormatter()
         guard let date = formatter.date(from: isoString) else {
             return isoString
         }
-        
+
         let timeFormatter = DateFormatter()
         timeFormatter.timeStyle = .short
         return timeFormatter.string(from: date)
@@ -339,13 +367,16 @@ struct AddTaskView: View {
     @State private var selectedChannel: Int? = nil
     @State private var estimatedWatts: Double = 1000
     @State private var durationMinutes: Double = 60
-    
+    @State private var isSaving = false
+
+    let onAdd: (String, Int?, Int, Int) async -> Void
+
     var body: some View {
         NavigationStack {
             Form {
                 Section("Task Details") {
                     TextField("Title", text: $title)
-                    
+
                     Picker("Channel", selection: $selectedChannel) {
                         Text("None").tag(nil as Int?)
                         Text("Channel 0").tag(0 as Int?)
@@ -354,14 +385,14 @@ struct AddTaskView: View {
                         Text("Channel 3").tag(3 as Int?)
                     }
                 }
-                
+
                 Section("Power Usage") {
                     VStack(alignment: .leading) {
                         Text("Estimated Watts: \(Int(estimatedWatts))W")
                             .font(.subheadline)
                         Slider(value: $estimatedWatts, in: 100...7200, step: 100)
                     }
-                    
+
                     VStack(alignment: .leading) {
                         Text("Duration: \(Int(durationMinutes)) minutes")
                             .font(.subheadline)
@@ -377,29 +408,85 @@ struct AddTaskView: View {
                         dismiss()
                     }
                 }
-                
+
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add") {
-                        // TODO: Send to API
-                        dismiss()
+                        isSaving = true
+                        Task {
+                            await onAdd(title, selectedChannel, Int(estimatedWatts), Int(durationMinutes))
+                            dismiss()
+                        }
                     }
-                    .disabled(title.isEmpty)
+                    .disabled(title.isEmpty || isSaving)
                 }
             }
         }
     }
 }
 
-@MainActor
 class CalendarViewModel: ObservableObject {
     @Published var optimization: OptimizationResult?
     @Published var forecast24h: [GridHour] = []
     @Published var showingAddTask = false
-    
+    @Published var showingImport = false
+    @Published var loadingState: LoadingState = .idle
+
+    private var cancellables = Set<AnyCancellable>()
+
     func loadData() async {
-        let dashboard = DashboardResponse.demo
-        optimization = dashboard.optimization
-        forecast24h = .demo24h
+        loadingState = .loading
+
+        do {
+            async let forecastResult = APIClient.shared.getForecast()
+            async let scheduleResult = APIClient.shared.getSchedule()
+
+            let forecast = try await forecastResult
+            let schedule = try await scheduleResult
+
+            forecast24h = forecast.gridForecast24h
+            optimization = schedule
+            loadingState = .loaded
+        } catch {
+            let dashboard = DashboardResponse.demo
+            optimization = dashboard.optimization
+            forecast24h = .demo24h
+            loadingState = .loaded
+        }
+
+        subscribeToWebSocket()
+    }
+
+    func addTask(title: String, channelId: Int?, estimatedWatts: Int, durationMinutes: Int) async {
+        let request = TaskRequest(
+            title: title,
+            channelId: channelId,
+            estimatedWatts: estimatedWatts,
+            estimatedDurationMin: durationMinutes,
+            deadline: nil,
+            isDeferrable: true,
+            priority: "medium"
+        )
+
+        _ = try? await APIClient.shared.addTask(request)
+    }
+
+    func importCalendar(from url: URL) async {
+        guard url.startAccessingSecurityScopedResource() else { return }
+        defer { url.stopAccessingSecurityScopedResource() }
+
+        guard let contents = try? String(contentsOf: url, encoding: .utf8) else { return }
+
+        let request = CalendarImportRequest(icalData: contents, jsonEvents: nil)
+        _ = try? await APIClient.shared.importCalendar(request)
+    }
+
+    private func subscribeToWebSocket() {
+        WebSocketManager.shared.calendarUpdate
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] update in
+                self?.optimization = update
+            }
+            .store(in: &cancellables)
     }
 }
 

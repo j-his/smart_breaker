@@ -10,7 +10,7 @@ import Combine
 
 struct DeviceView: View {
     @StateObject private var viewModel = DeviceViewModel()
-    
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -26,13 +26,13 @@ struct DeviceView: View {
                         Spacer()
                     }
                     .padding(.horizontal)
-                    
+
                     // Total Power Usage
                     VStack(spacing: 8) {
                         Text("Total Power")
                             .font(.headline)
                             .foregroundStyle(.secondary)
-                        
+
                         HStack(alignment: .firstTextBaseline, spacing: 4) {
                             Text(String(format: "%.0f", viewModel.totalWatts))
                                 .font(.system(size: 56, weight: .bold, design: .rounded))
@@ -40,13 +40,13 @@ struct DeviceView: View {
                                 .font(.title2)
                                 .foregroundStyle(.secondary)
                         }
-                        
+
                         // Power gauge
                         GeometryReader { geometry in
                             ZStack(alignment: .leading) {
                                 RoundedRectangle(cornerRadius: 8)
                                     .fill(Color.gray.opacity(0.2))
-                                
+
                                 RoundedRectangle(cornerRadius: 8)
                                     .fill(LinearGradient(
                                         colors: powerGradientColors,
@@ -57,7 +57,7 @@ struct DeviceView: View {
                             }
                         }
                         .frame(height: 12)
-                        
+
                         HStack {
                             Text("0 W")
                                 .font(.caption)
@@ -74,18 +74,18 @@ struct DeviceView: View {
                             .fill(Color(.secondarySystemBackground))
                     )
                     .padding(.horizontal)
-                    
+
                     // Grid Status
                     GridStatusCard(grid: viewModel.gridSnapshot)
                         .padding(.horizontal)
-                    
+
                     // Channel Readings
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Breaker Channels")
                             .font(.title2)
                             .fontWeight(.bold)
                             .padding(.horizontal)
-                        
+
                         ForEach(viewModel.channels) { channel in
                             ChannelCard(channel: channel)
                                 .padding(.horizontal)
@@ -99,12 +99,17 @@ struct DeviceView: View {
             .refreshable {
                 await viewModel.refresh()
             }
+            .overlay {
+                if viewModel.loadingState == .loading {
+                    ProgressView()
+                }
+            }
         }
         .task {
             await viewModel.startMonitoring()
         }
     }
-    
+
     private var powerGradientColors: [Color] {
         let usage = viewModel.totalWatts / 7200
         if usage < 0.5 {
@@ -119,7 +124,7 @@ struct DeviceView: View {
 
 struct ChannelCard: View {
     let channel: LiveChannel
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -128,17 +133,17 @@ struct ChannelCard: View {
                         .font(.caption)
                         .fontWeight(.semibold)
                         .foregroundStyle(.secondary)
-                    
+
                     Text(channel.assignedZone)
                         .font(.headline)
-                    
+
                     Text(channel.assignedAppliance)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
-                
+
                 Spacer()
-                
+
                 VStack(alignment: .trailing, spacing: 4) {
                     HStack(alignment: .firstTextBaseline, spacing: 2) {
                         Text(String(format: "%.0f", channel.currentWatts))
@@ -147,7 +152,7 @@ struct ChannelCard: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
-                    
+
                     HStack(spacing: 4) {
                         Circle()
                             .fill(channel.isActive ? Color.green : Color.gray)
@@ -173,14 +178,14 @@ struct ChannelCard: View {
 
 struct GridStatusCard: View {
     let grid: GridSnapshot
-    
+
     var body: some View {
         VStack(spacing: 12) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Grid Status")
                         .font(.headline)
-                    
+
                     HStack(spacing: 6) {
                         Circle()
                             .fill(gridColor)
@@ -190,9 +195,9 @@ struct GridStatusCard: View {
                             .fontWeight(.semibold)
                     }
                 }
-                
+
                 Spacer()
-                
+
                 VStack(alignment: .trailing, spacing: 4) {
                     HStack(alignment: .firstTextBaseline, spacing: 2) {
                         Text(String(format: "%.1f", grid.touPriceCentsKwh))
@@ -202,15 +207,15 @@ struct GridStatusCard: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-                    
+
                     Text(touPeriodText)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
-            
+
             Divider()
-            
+
             HStack(spacing: 20) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Renewable")
@@ -224,9 +229,9 @@ struct GridStatusCard: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                
+
                 Spacer()
-                
+
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("Carbon Intensity")
                         .font(.caption)
@@ -251,7 +256,7 @@ struct GridStatusCard: View {
                 )
         )
     }
-    
+
     private var gridColor: Color {
         switch grid.status {
         case .green: return .green
@@ -259,7 +264,7 @@ struct GridStatusCard: View {
         case .red: return .red
         }
     }
-    
+
     private var touPeriodText: String {
         switch grid.touPeriod {
         case .peak: return "Peak"
@@ -269,7 +274,6 @@ struct GridStatusCard: View {
     }
 }
 
-@MainActor
 class DeviceViewModel: ObservableObject {
     @Published var channels: [LiveChannel] = []
     @Published var totalWatts: Float = 0
@@ -281,22 +285,61 @@ class DeviceViewModel: ObservableObject {
         status: .yellow
     )
     @Published var isConnected: Bool = false
-    
+    @Published var loadingState: LoadingState = .idle
+
+    private var cancellables = Set<AnyCancellable>()
+
     func startMonitoring() async {
-        // Load demo data
-        loadDemoData()
-        
-        // Simulate live updates
-        while true {
-            try? await Task.sleep(for: .seconds(2))
-            updateLiveReadings()
+        loadingState = .loading
+
+        do {
+            let dashboard = try await APIClient.shared.getDashboard()
+            channels = channelsFromDashboard(dashboard)
+            totalWatts = dashboard.currentPower.totalWatts
+            gridSnapshot = dashboard.grid
+            isConnected = dashboard.hardwareConnected
+            loadingState = .loaded
+        } catch {
+            loadDemoData()
+            loadingState = .loaded
+        }
+
+        subscribeToWebSocket()
+    }
+
+    func refresh() async {
+        do {
+            let dashboard = try await APIClient.shared.getDashboard()
+            channels = channelsFromDashboard(dashboard)
+            totalWatts = dashboard.currentPower.totalWatts
+            gridSnapshot = dashboard.grid
+            isConnected = dashboard.hardwareConnected
+        } catch {
+            loadDemoData()
         }
     }
-    
-    func refresh() async {
-        loadDemoData()
+
+    private func subscribeToWebSocket() {
+        WebSocketManager.shared.sensorUpdate
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] update in
+                self?.channels = update.channels
+                self?.totalWatts = update.totalWatts
+            }
+            .store(in: &cancellables)
+
+        WebSocketManager.shared.gridStatusUpdate
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] update in
+                self?.gridSnapshot = update.current
+            }
+            .store(in: &cancellables)
+
+        WebSocketManager.shared.$isConnected
+            .receive(on: DispatchQueue.main)
+            .assign(to: &$isConnected)
     }
-    
+
     private func loadDemoData() {
         let dashboard = DashboardResponse.demo
         channels = .demo
@@ -304,24 +347,26 @@ class DeviceViewModel: ObservableObject {
         gridSnapshot = dashboard.grid
         isConnected = dashboard.hardwareConnected
     }
-    
-    private func updateLiveReadings() {
-        // Simulate fluctuating power readings
-        for i in 0..<channels.count {
-            let baseWatts = channels[i].currentWatts
-            let variation = Float.random(in: -50...50)
-            let newWatts = max(0, baseWatts + variation)
-            
-            channels[i] = LiveChannel(
-                channelId: channels[i].channelId,
-                assignedZone: channels[i].assignedZone,
-                assignedAppliance: channels[i].assignedAppliance,
-                currentWatts: newWatts,
-                isActive: newWatts > 10
+
+    private func channelsFromDashboard(_ d: DashboardResponse) -> [LiveChannel] {
+        let configs: [(zone: String, appliance: String)] = [
+            ("Kitchen", "Induction Stove"),
+            ("Laundry Room", "Dryer"),
+            ("Garage", "EV Charger"),
+            ("Bedroom", "Air Conditioning"),
+        ]
+        let watts = [d.currentPower.ch0Watts, d.currentPower.ch1Watts,
+                     d.currentPower.ch2Watts, d.currentPower.ch3Watts]
+
+        return (0..<4).map { i in
+            LiveChannel(
+                channelId: i,
+                assignedZone: configs[i].zone,
+                assignedAppliance: configs[i].appliance,
+                currentWatts: watts[i],
+                isActive: watts[i] > 10
             )
         }
-        
-        totalWatts = channels.reduce(0) { $0 + $1.currentWatts }
     }
 }
 

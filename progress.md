@@ -56,6 +56,21 @@
 | 39. Hardware-compatible sensor model | DONE | Optional zone/appliance with config defaults, power_watts field, 2/2 tests |
 | 40. Backend 100% verification | DONE | 109/109 tests passing, WattTime live, hardware-ready |
 | 41. ML inference pipeline + event bus wiring | DONE | build_realtime_window(), orchestrator.py, inference_loop, event bus publishing (SCHEDULE_UPDATED, GRID_STATUS_CHANGED, ML_INFERENCE_COMPLETE, ANOMALY_DETECTED), /api/attention real data, /api/insights populated, Monte Carlo in optimizer loop, run_in_executor for MILP, TTS finally fix, demo day cycling — 115/115 tests |
+| F0. Frontend plan + repo prep | DONE | Merged backend→main, created dev/frontend, cleaned junk files |
+| F1. New models (WebSocket + REST types) | DONE | SensorUpdateData, GridStatusUpdate, AnomalyAlert, TTSAudioChunk, ChatMessage, ChatResponseData, HealthResponse, ForecastResponse, TaskRequest/Response, SettingsRequest/Response, CalendarImportRequest/Response, LoadingState, APIError, WSTypeOnly, WSTypedEnvelope |
+| F2. APIClient service | DONE | Services/APIClient.swift — singleton, generic get/post, 8 convenience methods, convertFromSnakeCase decoder |
+| F3. WebSocketManager service (/ws/live) | DONE | Services/WebSocketManager.swift — 6 Combine PassthroughSubjects, two-pass envelope decode, exponential backoff reconnect |
+| F4. ChatWebSocketManager service (/ws/chat) | DONE | Services/ChatWebSocketManager.swift — bidirectional chat, streaming chunk/done handling |
+| F5. Wire DeviceView to backend | DONE | REST initial load + WebSocket subscriptions replace timer-based demo updates |
+| F6. Wire CalendarView to backend | DONE | Parallel async fetch (forecast + schedule), POST /api/tasks, .ics file import, WebSocket calendar_update |
+| F7. Wire SettingsView to backend | DONE | GET /api/health test, POST /api/settings, full UserDefaults persistence |
+| F8. InsightsView (new) | DONE | InsightsView + InsightCard + AnomalyCard, GET /api/insights + WebSocket subscriptions |
+| F9. ChatView (floating sheet) | DONE | ChatView + ChatBubble + ChatViewModel, streaming responses, auto-scroll |
+| F10. TTS audio player | DONE | Services/TTSPlayer.swift — accumulate base64 chunks, AVAudioPlayer playback |
+| F11. ContentView update (tabs + chat FAB) | DONE | 5-tab layout + floating chat button + WebSocket/TTS init in .task |
+| F12. Loading/error banners | DONE | Components/StatusBanners.swift — ConnectionStatusBanner + ErrorBanner |
+| F13. XCTest unit tests | DONE | NetworkingTests.swift — 20 tests: all REST response decoding, all WS envelope decoding, request encoding, malformed JSON |
+| F14. Xcode project configuration | DONE | PBXFileSystemSynchronizedRootGroup auto-discovers all new files — no pbxproj edits needed |
 
 ## Checklists
 
