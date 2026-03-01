@@ -24,6 +24,11 @@ void setup() {
   pinMode(7, OUTPUT);        // Set pin 7 to output mode
   digitalWrite(7, HIGH);     // Set pin 7 to high level to activate the screen power
 
+  pinMode(21, OUTPUT);
+  pinMode(17, OUTPUT);
+  pinMode(19, OUTPUT);
+  pinMode(15, OUTPUT);
+
   EPD_GPIOInit();            // Initialize the GPIO pin configuration for the EPD electronic ink screen
   Paint_NewImage(ImageBW, EPD_W, EPD_H, Rotation, WHITE); // Create a new image buffer with dimensions EPD_W x EPD_H and a white background
   Paint_Clear(WHITE);        // Clear the image buffer and fill it with white
@@ -46,18 +51,27 @@ void setup() {
   // Add more black squares around the center
   draw_image_to_buffer(square, 261, 101, 70, 70); // Left square
   update_screen();
+  digitalWrite(21, HIGH);
   delay(1000);
+  digitalWrite(21, LOW);
 
   draw_image_to_buffer(square, 461, 101, 70, 70); // Right square
   update_screen();
+  digitalWrite(17, HIGH);
   delay(1000);
+  digitalWrite(17, LOW);
 
   draw_image_to_buffer(square, 361, 21,  70, 70); // Top square
   update_screen();
+  digitalWrite(19, HIGH);
   delay(1000);
+  digitalWrite(19, LOW);
 
   draw_image_to_buffer(square, 361, 181, 70, 70); // Bottom square
   update_screen();
+  digitalWrite(15, HIGH);
+  delay(1000);
+  digitalWrite(15, LOW);
   
   delay(5000);               // Wait for 5000 milliseconds (5 seconds)
 
