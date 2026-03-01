@@ -153,7 +153,7 @@ extension BLEManager: CBCentralManagerDelegate {
 
         log("FOUND: \"\(name)\" RSSI=\(RSSI) services=\(serviceUUIDs.map(\.uuidString))")
 
-        guard name.hasPrefix("getmogged") else { return }
+        guard name.hasPrefix("getmogged") || name.hasPrefix("EnergyAI") else { return }
 
         log("MATCHED: \"\(name)\" — adding to list")
         if !discoveredPeripherals.contains(where: { $0.identifier == peripheral.identifier }) {
