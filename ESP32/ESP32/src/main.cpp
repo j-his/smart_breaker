@@ -32,6 +32,20 @@ void tcaSelect(uint8_t i) {
 
 // --------- Pin Configuration ----------
 const int ctPins[4] = {8, 14, 16, 18};
+const int buttonPins[4] = {1, 2, 4, 6};
+const int relayPins[4] = {15, 17, 19, 21};
+
+// --------- Button & Relay State ----------
+volatile bool relayState[4] = {false, false, false, false};
+int buttonState[4] = {HIGH, HIGH, HIGH, HIGH};
+int lastButtonReading[4] = {HIGH, HIGH, HIGH, HIGH};
+unsigned long lastDebounceTime[4] = {0, 0, 0, 0};
+unsigned long debounceDelay = 50;
+
+volatile bool needEpdUpdate = false;
+
+const int relayX[4] = {361, 461, 361, 261};
+const int relayY[4] = {181, 101, 21,  101};
 
 // --------- CT Parameters ----------
 const float BURDEN = 100.0;     // ohms
@@ -50,6 +64,32 @@ uint8_t square2[4900];
 void display_image(uint8_t *image, int x, int y, int w, int h);
 void draw_image_to_buffer(uint8_t *image, int x, int y, int w, int h);
 void update_screen();
+
+void buttonTask(void *pvParameters) {
+  for(;;) {
+    for (int i = 0; i < 4; i++) {
+      int reading = digitalRead(buttonPins[i]);
+      
+      if (reading != lastButtonReading[i]) {
+        lastDebounceTime[i] = millis();
+      }
+      
+      if ((millis() - lastDebounceTime[i]) > debounceDelay) {
+        if (reading != buttonState[i]) {
+          buttonState[i] = reading;
+          
+          if (buttonState[i] == LOW) {
+            relayState[i] = !relayState[i];
+            digitalWrite(relayPins[i], relayState[i] ? HIGH : LOW);
+            needEpdUpdate = true;
+          }
+        }
+      }
+      lastButtonReading[i] = reading;
+    }
+    vTaskDelay(10 / portTICK_PERIOD_MS);
+  }
+}
 
 void setup() {
   Serial.begin(115200);
@@ -86,10 +126,11 @@ void setup() {
   pinMode(7, OUTPUT);        // Set pin 7 to output mode
   digitalWrite(7, HIGH);     // Set pin 7 to high level to activate the screen power
 
-  pinMode(21, OUTPUT);
-  pinMode(17, OUTPUT);
-  pinMode(19, OUTPUT);
-  pinMode(15, OUTPUT);
+  for (int i = 0; i < 4; i++) {
+    pinMode(buttonPins[i], INPUT_PULLUP);
+    pinMode(relayPins[i], OUTPUT);
+    digitalWrite(relayPins[i], LOW);
+  }
 
   EPD_GPIOInit();            // Initialize the GPIO pin configuration for the EPD electronic ink screen
   Paint_NewImage(ImageBW, EPD_W, EPD_H, Rotation, WHITE); // Create a new image buffer with dimensions EPD_W x EPD_H and a white background
@@ -100,49 +141,42 @@ void setup() {
   EPD_Display_Clear();       // Clear the screen content
   EPD_Update();              // Update the screen display
 
-  // // display_image(gImage_device_interface2, 0, 0, 792, 272);
-  // delay(1000);
-  
-  // // Center coordinates for a 70x70 square on a 792x272 screen
-  // // x = (792 - 70) / 2 = 361
-  // // y = (272 - 70) / 2 = 101
-  // draw_image_to_buffer(square, 361, 101, 70, 70);
-  // update_screen();
-  // delay(1000);
-  
-  // // Add more black squares around the center
-  // draw_image_to_buffer(square, 261, 101, 70, 70); // Left square
-  // update_screen();
-  // digitalWrite(21, HIGH);
-  // delay(1000);
-  // digitalWrite(21, LOW);
+  // Initial draw
+  for (int i = 0; i < 4; i++) {
+    if (relayState[i]) {
+      draw_image_to_buffer(square, relayX[i], relayY[i], 70, 70);
+    } else {
+      draw_image_to_buffer(square2, relayX[i], relayY[i], 70, 70);
+    }
+  }
+  update_screen();
 
-  // draw_image_to_buffer(square, 461, 101, 70, 70); // Right square
-  // update_screen();
-  // digitalWrite(17, HIGH);
-  // delay(1000);
-  // digitalWrite(17, LOW);
-
-  // draw_image_to_buffer(square, 361, 21,  70, 70); // Top square
-  // update_screen();
-  // digitalWrite(19, HIGH);
-  // delay(1000);
-  // digitalWrite(19, LOW);
-
-  // draw_image_to_buffer(square, 361, 181, 70, 70); // Bottom square
-  // update_screen();
-  // digitalWrite(15, HIGH);
-  // delay(1000);
-  // digitalWrite(15, LOW);
-  
-  // delay(5000);               // Wait for 5000 milliseconds (5 seconds)
-
-  clear_all();               // Call the clear_all function to clear the screen content
+  xTaskCreatePinnedToCore(
+    buttonTask,
+    "ButtonTask",
+    2048,
+    NULL,
+    1,
+    NULL,
+    0
+  );
 }
 
 
 void loop() {
   // Main loop function
+  if (needEpdUpdate) {
+    needEpdUpdate = false;
+    for (int i = 0; i < 4; i++) {
+      if (relayState[i]) {
+        draw_image_to_buffer(square, relayX[i], relayY[i], 70, 70);
+      } else {
+        draw_image_to_buffer(square2, relayX[i], relayY[i], 70, 70);
+      }
+    }
+    update_screen();
+  }
+
   static unsigned long lastUpdate = 0;
   if (millis() - lastUpdate > 1000) {
     lastUpdate = millis();
