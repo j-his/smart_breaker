@@ -38,19 +38,19 @@
 | 22. REST routes | DONE | 10 endpoints: health, dashboard, forecast, schedule, tasks, calendar, sensor, settings, insights, attention — 7/7 tests |
 | 23. Main app | DONE | FastAPI + CORS + WS /ws/live + /ws/chat + synthetic data loop — 3/3 tests |
 | 24. Background scheduler + cache | DONE | optimization_loop (900s), grid_refresh_loop (300s), TTLCache — 4/4 tests |
-| 25. LLM context | TODO | |
-| 26. LLM chat | TODO | |
-| 27. LLM narrator | TODO | |
-| 27b. ElevenLabs TTS | TODO | |
-| 28. Monte Carlo robustness | TODO | |
-| 29. Demo mode controller | TODO | |
-| 30. Wire event bus + update main | TODO | |
-| 31. API docs (human) | TODO | |
-| 32. API docs (AI) | TODO | |
-| 33. WebSocket test page | TODO | |
-| 34. Database layer | TODO | |
-| 35. Smoke test script | TODO | |
-| 36. Run all tests | TODO | |
+| 25. LLM context | DONE | 5/5 tests, context assembler with sensor/grid/optimization sections |
+| 26. LLM chat | DONE | 4/4 tests, Groq chat with streaming + graceful fallback |
+| 27. LLM narrator | DONE | 4/4 tests, narrator event handlers (schedule, anomaly, grid) |
+| 27b. ElevenLabs TTS | DONE | 4/4 tests, ElevenLabs TTS streaming via WebSocket |
+| 28. Monte Carlo robustness | DONE | 4/4 tests, Monte Carlo confidence scoring |
+| 29. Demo mode controller | DONE | 4/4 tests, demo mode controller with 6 time scales |
+| 30. Wire event bus + update main | DONE | +2 tests, event bus wired in lifespan + real /ws/chat |
+| 31. API docs (human) | DONE | Already existed as Task 4b (docs/API_GUIDE.md) |
+| 32. API docs (AI) | DONE | Already existed as Task 4b (docs/API_SPEC_FOR_AI.md) |
+| 33. WebSocket test page | DONE | Dark theme 2x2 grid: live power bars, chat, quick actions, event log |
+| 34. Database layer | DONE | 4/4 tests, aiosqlite with 4 tables + init_db in lifespan |
+| 35. Smoke test script | DONE | 9/9 endpoint tests via httpx, field names corrected from plan |
+| 36. Run all tests | DONE | 103/103 tests passing, no circular imports |
 
 ## Checklists
 
