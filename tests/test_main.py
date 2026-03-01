@@ -36,3 +36,29 @@ class TestMainApp:
                 },
             )
             assert "access-control-allow-origin" in resp.headers
+
+    @pytest.mark.asyncio
+    async def test_health_still_works_after_wiring(self):
+        """GET /api/health should still work after event bus + demo mode wiring."""
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.get("/api/health")
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["status"] == "ok"
+            assert "ws_clients" in data
+
+    @pytest.mark.asyncio
+    async def test_cors_still_works_after_wiring(self):
+        """CORS should still function correctly after narrator + demo wiring."""
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.options(
+                "/api/dashboard",
+                headers={
+                    "Origin": "http://192.168.1.100:3000",
+                    "Access-Control-Request-Method": "GET",
+                },
+            )
+            assert resp.status_code == 200
+            assert "access-control-allow-origin" in resp.headers
