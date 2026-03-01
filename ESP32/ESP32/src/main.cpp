@@ -15,13 +15,14 @@
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
-#include <Preferences.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <time.h>
 
-#define DEFAULT_SERVER_URL "http://192.168.0.208:8000/"
+#define DEFAULT_SERVER_URL "http://192.168.137.1:8000"
 
+// How often to POST sensor data to backend (milliseconds)
+#define SENSOR_POST_INTERVAL 5000
 
 #define SERVICE_UUID        "12340001-1234-5678-9ABC-FEDCBA987654"
 #define CHAR_UUID_WIFI_SSID "12340002-1234-5678-9ABC-FEDCBA987654"
@@ -37,16 +38,19 @@ BLECharacteristic* pCharBrkStat = NULL;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
 
-Preferences preferences;
-
-String wifiSsid = "";
-String wifiPass = "";
+String wifiSsid = "LAPTOPOFYANG";
+String wifiPass = "y1234567";
 uint8_t wifiStatus = 0x00; // 0=disconnected, 1=connecting, 2=connected, 3=failed
 unsigned long lastWifiCheck = 0;
+
+// Latest Irms values shared between sensor read and HTTP post
+double lastIrms[4] = {0, 0, 0, 0};
+unsigned long lastSensorPost = 0;
 
 void updateBreakerStateBLE();
 void updateWifiStateBLE();
 void connectToWiFi();
+void postSensorData();
 
 // --------- Pin Configuration ----------
 const int ctPins[4] = {8, 14, 16, 18};
@@ -63,7 +67,7 @@ unsigned long debounceDelay = 50;
 volatile bool needEpdUpdate = false;
 unsigned long lastEpdRefresh = 0;
 const unsigned long EPD_MIN_INTERVAL = 2000; // Minimum 2s between EPD refreshes
-volatile bool needBrkSave = false; // Deferred NVS save flag for button presses
+volatile bool needBrkSave = false; // Deferred BLE notify flag for button presses
 volatile bool enterPairingMode = false; // Set by button combo hold
 
 class MyServerCallbacks: public BLEServerCallbacks {
@@ -81,7 +85,6 @@ class WifiSsidCallbacks: public BLECharacteristicCallbacks {
       std::string value = pCharacteristic->getValue();
       if (value.length() > 0) {
         wifiSsid = value.c_str();
-        preferences.putString("ssid", wifiSsid);
         connectToWiFi();
       }
     }
@@ -92,7 +95,6 @@ class WifiPassCallbacks: public BLECharacteristicCallbacks {
       std::string value = pCharacteristic->getValue();
       if (value.length() > 0) {
         wifiPass = value.c_str();
-        preferences.putString("pass", wifiPass);
         connectToWiFi();
       }
     }
@@ -107,12 +109,6 @@ class BrkCmdCallbacks: public BLECharacteristicCallbacks {
         if (channel < 4) {
           relayState[channel] = (state == 1);
           digitalWrite(relayPins[channel], relayState[channel] ? HIGH : LOW);
-          
-          uint8_t stateBitmap = 0;
-          for(int i = 0; i < 4; i++) {
-              if(relayState[i]) stateBitmap |= (1 << i);
-          }
-          preferences.putUChar("brkStat", stateBitmap);
 
           needEpdUpdate = true;
           updateBreakerStateBLE();
@@ -143,16 +139,52 @@ void updateWifiStateBLE() {
 
 void connectToWiFi() {
   if (wifiSsid == "") {
+    Serial.println("WiFi SSID is empty, aborting connection.");
     wifiStatus = 0x00;
     updateWifiStateBLE();
     return;
   }
-  WiFi.disconnect();
+  Serial.print("Connecting to WiFi SSID: ");
+  Serial.println(wifiSsid);
+  // Do not print wifiPass for security usually, but I'll print its length or content for debug
+  Serial.print("Password: ");
+  Serial.println(wifiPass);
+  
+  WiFi.disconnect(true, true); // Force disconnect before attempting to connect again
+  delay(100);
   WiFi.mode(WIFI_STA);
   WiFi.begin(wifiSsid.c_str(), wifiPass.c_str());
   wifiStatus = 0x01; // connecting
   updateWifiStateBLE();
   lastWifiCheck = millis();
+}
+
+// --------- HTTP POST sensor data to backend ----------
+void postSensorData() {
+  if (wifiStatus != 0x02) return; // Only post when WiFi is connected
+
+  HTTPClient http;
+  String url = String(DEFAULT_SERVER_URL) + "/api/sensor";
+  http.begin(url);
+  http.addHeader("Content-Type", "application/json");
+
+  // Build JSON matching backend's SensorReading schema
+  String json = "{\"device_id\":\"getmogged-pro-9000\",\"channels\":[";
+  for (int i = 0; i < 4; i++) {
+    if (i > 0) json += ",";
+    json += "{\"channel_id\":" + String(i) + ",\"current_amps\":" + String(lastIrms[i], 3) + "}";
+  }
+  json += "]}";
+
+  int httpCode = http.POST(json);
+  if (httpCode > 0) {
+    Serial.print("POST /api/sensor -> ");
+    Serial.println(httpCode);
+  } else {
+    Serial.print("POST failed: ");
+    Serial.println(http.errorToString(httpCode));
+  }
+  http.end();
 }
 
 
@@ -176,7 +208,7 @@ void tcaSelect(uint8_t i) {
 }
 
 // 4 blocks distributed horizontally across the 792 pixel width
-// 792 / 4 = 198 pixels per block. 
+// 792 / 4 = 198 pixels per block.
 // Center of each block for a 70px square is: (198 - 70) / 2 = 64
 const int relayX[4] = {64, 262, 460, 658};
 const int relayY[4] = {101, 101, 101, 101};
@@ -184,8 +216,8 @@ const int relayY[4] = {101, 101, 101, 101};
 // --------- CT Parameters ----------
 const float BURDEN = 100.0;     // ohms
 const float TURNS  = 2000.0;    // CT ratio
-const float ADC_REF = 3.3;      
-const int   ADC_MAX = 4095;     
+const float ADC_REF = 3.3;
+const int   ADC_MAX = 4095;
 
 uint8_t ImageBW[27200];      // Declare an array of 27200 bytes to store black and white image data
 
@@ -224,21 +256,21 @@ void buttonTask(void *pvParameters) {
     // --- Normal per-button toggle logic ---
     for (int i = 0; i < 4; i++) {
       int reading = digitalRead(buttonPins[i]);
-      
+
       if (reading != lastButtonReading[i]) {
         lastDebounceTime[i] = millis();
       }
-      
+
       if ((millis() - lastDebounceTime[i]) > debounceDelay) {
         if (reading != buttonState[i]) {
           buttonState[i] = reading;
-          
+
           if (buttonState[i] == LOW) {
             relayState[i] = !relayState[i];
             digitalWrite(relayPins[i], relayState[i] ? HIGH : LOW);
-            
-            needBrkSave = true;  // Defer NVS write to main loop (needs more stack)
-            
+
+            needBrkSave = true;  // Defer BLE notify to main loop (needs more stack)
+
             needEpdUpdate = true;
           }
         }
@@ -262,7 +294,7 @@ void setup() {
   for (uint8_t t=0; t<4; t++) {
     tcaSelect(t);
     // Address 0x3C for most 128x32 OLEDs
-    if(!displays[t].begin(SSD1306_SWITCHCAPVCC, 0x3C)) { 
+    if(!displays[t].begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
       Serial.print("SSD1306 allocation failed for screen ");
       Serial.println(t);
     } else {
@@ -284,16 +316,11 @@ void setup() {
   pinMode(7, OUTPUT);        // Set pin 7 to output mode
   digitalWrite(7, HIGH);     // Set pin 7 to high level to activate the screen power
 
-  preferences.begin("app", false);
-  wifiSsid = preferences.getString("ssid", "");
-  wifiPass = preferences.getString("pass", "");
-  uint8_t savedBrkStat = preferences.getUChar("brkStat", 0);
-
   for (int i = 0; i < 4; i++) {
-    relayState[i] = (savedBrkStat & (1 << i)) ? true : false;
+    relayState[i] = false;
     pinMode(buttonPins[i], INPUT_PULLUP);
     pinMode(relayPins[i], OUTPUT);
-    digitalWrite(relayPins[i], relayState[i] ? HIGH : LOW);
+    digitalWrite(relayPins[i], LOW);
   }
 
   BLEDevice::init("getmogged-pro-9000");
@@ -320,7 +347,7 @@ void setup() {
                       BLECharacteristic::PROPERTY_NOTIFY
                     );
   pCharWifiStat->addDescriptor(new BLE2902());
-  
+
   pCharBrkStat = pService->createCharacteristic(
                      CHAR_UUID_BRK_STAT,
                      BLECharacteristic::PROPERTY_READ |
@@ -382,8 +409,6 @@ void loop() {
     Serial.println("Entering BLE pairing mode...");
 
     // Clear stored WiFi credentials
-    preferences.remove("ssid");
-    preferences.remove("pass");
     wifiSsid = "";
     wifiPass = "";
     WiFi.disconnect();
@@ -400,20 +425,21 @@ void loop() {
   // Handle deferred NVS save + BLE notify from button task
   if (needBrkSave) {
     needBrkSave = false;
-    uint8_t stateBitmap = 0;
-    for (int i = 0; i < 4; i++) {
-      if (relayState[i]) stateBitmap |= (1 << i);
-    }
-    preferences.putUChar("brkStat", stateBitmap);
     updateBreakerStateBLE();
   }
 
   if (wifiStatus == 0x01) {
     if (WiFi.status() == WL_CONNECTED) {
+      Serial.println("WiFi connected!");
+      Serial.print("IP Address: ");
+      Serial.println(WiFi.localIP());
       wifiStatus = 0x02; // connected
       updateWifiStateBLE();
       needEpdUpdate = true;
     } else if (millis() - lastWifiCheck > 15000) { // 15s timeout
+      Serial.println("WiFi connection timeout!");
+      Serial.print("Status: ");
+      Serial.println(WiFi.status());
       wifiStatus = 0x03; // failed
       updateWifiStateBLE();
       needEpdUpdate = true;
@@ -424,7 +450,7 @@ void loop() {
   if (needEpdUpdate && (millis() - lastEpdRefresh >= EPD_MIN_INTERVAL)) {
     needEpdUpdate = false;
     lastEpdRefresh = millis();
-    
+
     // Clear the buffer
     Paint_Clear(WHITE);
 
@@ -501,7 +527,13 @@ void loop() {
       double Vrms = sqrt(sum[ch] / samples);
 
       // Convert voltage to primary current
-      Irms[ch] = ((Vrms / BURDEN) * TURNS)-1.75;
+      Irms[ch] = ((Vrms / BURDEN) * TURNS)-2.97;
+
+      // Clamp negative readings to zero
+      if (Irms[ch] < 0) Irms[ch] = 0;
+
+      // Store for HTTP posting
+      lastIrms[ch] = Irms[ch];
 
       Serial.print("CT");
       Serial.print(ch);
@@ -515,18 +547,18 @@ void loop() {
     for (uint8_t t = 0; t < 4; t++) {
       tcaSelect(t);
       displays[t].clearDisplay();
-      
+
       String currentStr = String(Irms[t], 2) + "A";
-      
+
       displays[t].setTextSize(3);
-      
+
       // Calculate text width to center it (approx. 12 pixels per character for size 2)
       int textWidth = currentStr.length() * 12;
       int x = (SCREEN_WIDTH - textWidth) / 2;
-      
+
       // Center vertically as well (height is approx 16 pixels for size 2, on a 32px high screen)
       int y = (SCREEN_HEIGHT - 16) / 2;
-      
+
       displays[t].setCursor(x, y);
       displays[t].print(currentStr);
 
@@ -537,6 +569,12 @@ void loop() {
 
       displays[t].display();
     }
+  }
+
+  // --------- POST sensor data to backend every SENSOR_POST_INTERVAL ms ----------
+  if (wifiStatus == 0x02 && (millis() - lastSensorPost >= SENSOR_POST_INTERVAL)) {
+    lastSensorPost = millis();
+    postSensorData();
   }
 }
 
@@ -549,13 +587,13 @@ void clear_all() {
 
 void display_image(uint8_t *image, int x, int y, int w, int h) {
     uint8_t * temp = (uint8_t *)malloc(w * h * sizeof(uint8_t));
-    
+
     // Use && to ensure the entire sprite is within BOTH width and height bounds
     if(x + w <= 792 && y + h <= 272) {
-           
+
       EPD_GPIOInit();            // Reinitialize the GPIO pin configuration for the EPD electronic ink screen
       EPD_FastMode1Init();
-      
+
       // Corrected loop to iterate correctly over x/y coordinates and array indices
       for(int j = 0; j < h; j++) {
         for(int i = 0; i < w; i++) {
@@ -563,13 +601,13 @@ void display_image(uint8_t *image, int x, int y, int w, int h) {
           Paint_SetPixel(x + i, y + j, image[j * w + i]);
         }
       }
-      
+
       EPD_Display(ImageBW);      // Display the image stored in the ImageBW array
-      
+
       //EPD_FastUpdate();          // Perform a fast update to refresh the screen
       EPD_DeepSleep();           // Set the screen to deep sleep mode to save power
     }
-    
+
     free(temp); // Free the dynamically allocated memory
 }
 
