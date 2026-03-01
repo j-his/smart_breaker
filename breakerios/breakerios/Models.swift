@@ -55,6 +55,11 @@ struct LiveChannel: Codable, Identifiable {
     let assignedAppliance: String
     let currentWatts: Float
     let isActive: Bool
+    var isOn: Bool = true
+
+    private enum CodingKeys: String, CodingKey {
+        case channelId, assignedZone, assignedAppliance, currentWatts, isActive
+    }
 }
 
 struct CurrentPower: Codable {
@@ -119,8 +124,14 @@ struct Insight: Codable, Identifiable {
     let category: InsightCategory
     let severity: InsightSeverity
     let insightId: String?
-    
-    var id: String { insightId ?? UUID().uuidString }
+
+    let stableId = UUID().uuidString
+
+    var id: String { insightId ?? stableId }
+
+    private enum CodingKeys: String, CodingKey {
+        case message, category, severity, insightId
+    }
 }
 
 // MARK: - Demo Data

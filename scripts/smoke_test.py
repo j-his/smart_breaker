@@ -57,7 +57,7 @@ async def run_smoke_tests():
             d = r.json()
             assert "current_power" in d, "missing current_power"
             assert "grid" in d, "missing grid"
-            print(f"         total power: {d['current_power']['total']} W")
+            print(f"         total power: {d['current_power']['total_watts']} W")
         await test("GET /api/dashboard", t2())
 
         # 3. Forecast
@@ -81,7 +81,7 @@ async def run_smoke_tests():
             r = await c.post("/api/calendar/import", json={"json_events": events})
             assert r.status_code == 200, f"status {r.status_code}"
             d = r.json()
-            print(f"         imported: {d['imported']} events")
+            print(f"         imported: {d['events_imported']} events")
         await test("POST /api/calendar/import", t4())
 
         # 5. Schedule
@@ -100,11 +100,11 @@ async def run_smoke_tests():
                 "estimated_duration_min": 60,
                 "channel_id": 1,
                 "is_deferrable": True,
-                "priority": 3,
+                "priority": "medium",
             })
             assert r.status_code == 200, f"status {r.status_code}"
             d = r.json()
-            print(f"         task status: {d['status']}")
+            print(f"         task message: {d['message']}")
         await test("POST /api/tasks", t6())
 
         # 7. Settings

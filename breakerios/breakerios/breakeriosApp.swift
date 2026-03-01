@@ -9,9 +9,16 @@ import SwiftUI
 
 @main
 struct breakeriosApp: App {
+    @AppStorage("pairedDeviceUUID") private var pairedDeviceUUID: String?
+    @State private var isPaired = false
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            if pairedDeviceUUID != nil || isPaired {
+                ContentView()
+            } else {
+                PairingView(isPaired: $isPaired)
+            }
         }
     }
 }

@@ -87,8 +87,10 @@ struct DeviceView: View {
                             .padding(.horizontal)
 
                         ForEach(viewModel.channels) { channel in
-                            ChannelCard(channel: channel)
-                                .padding(.horizontal)
+                            ChannelCard(channel: channel) { channelId, on in
+                                viewModel.toggleBreaker(channel: channelId, on: on)
+                            }
+                            .padding(.horizontal)
                         }
                     }
                     .padding(.top)
@@ -124,6 +126,7 @@ struct DeviceView: View {
 
 struct ChannelCard: View {
     let channel: LiveChannel
+    var onToggle: ((Int, Bool) -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -163,6 +166,17 @@ struct ChannelCard: View {
                     }
                 }
             }
+
+            // Breaker Toggle
+            Toggle(isOn: Binding(
+                get: { channel.isOn },
+                set: { newValue in onToggle?(channel.channelId, newValue) }
+            )) {
+                Label("Breaker", systemImage: channel.isOn ? "power.circle.fill" : "power.circle")
+                    .font(.subheadline)
+                    .foregroundStyle(channel.isOn ? .primary : .secondary)
+            }
+            .tint(.green)
         }
         .padding()
         .background(
@@ -170,9 +184,10 @@ struct ChannelCard: View {
                 .fill(Color(.secondarySystemBackground))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .strokeBorder(channel.isActive ? Color.green.opacity(0.3) : Color.clear, lineWidth: 2)
+                        .strokeBorder(channel.isOn ? (channel.isActive ? Color.green.opacity(0.3) : Color.clear) : Color.red.opacity(0.3), lineWidth: 2)
                 )
         )
+        .opacity(channel.isOn ? 1.0 : 0.6)
     }
 }
 
@@ -319,12 +334,17 @@ class DeviceViewModel: ObservableObject {
         }
     }
 
+    func toggleBreaker(channel: Int, on: Bool) {
+        BLEManager.shared.toggleBreaker(channel: channel, on: on)
+    }
+
     private func subscribeToWebSocket() {
         WebSocketManager.shared.sensorUpdate
             .receive(on: DispatchQueue.main)
             .sink { [weak self] update in
                 self?.channels = update.channels
                 self?.totalWatts = update.totalWatts
+                self?.mergeBreakerStates()
             }
             .store(in: &cancellables)
 
@@ -338,6 +358,21 @@ class DeviceViewModel: ObservableObject {
         WebSocketManager.shared.$isConnected
             .receive(on: DispatchQueue.main)
             .assign(to: &$isConnected)
+
+        // Subscribe to BLE breaker state changes
+        BLEManager.shared.$breakerStates
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.mergeBreakerStates()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func mergeBreakerStates() {
+        let states = BLEManager.shared.breakerStates
+        for i in channels.indices where i < states.count {
+            channels[i].isOn = states[i]
+        }
     }
 
     private func loadDemoData() {

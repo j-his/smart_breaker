@@ -59,24 +59,21 @@ class WebSocketManager: ObservableObject {
 
     private func receiveMessage() {
         webSocketTask?.receive { [weak self] result in
-            guard let self else { return }
-
-            switch result {
-            case .success(let message):
-                switch message {
-                case .data(let data):
-                    Task { @MainActor in self.handleMessage(data) }
-                case .string(let text):
-                    if let data = text.data(using: .utf8) {
-                        Task { @MainActor in self.handleMessage(data) }
+            Task { @MainActor in
+                guard let self else { return }
+                switch result {
+                case .success(let message):
+                    switch message {
+                    case .data(let data):
+                        self.handleMessage(data)
+                    case .string(let text):
+                        if let data = text.data(using: .utf8) {
+                            self.handleMessage(data)
+                        }
+                    @unknown default: break
                     }
-                @unknown default:
-                    break
-                }
-                self.receiveMessage()
-
-            case .failure:
-                Task { @MainActor in
+                    self.receiveMessage()
+                case .failure:
                     self.isConnected = false
                     self.reconnect()
                 }

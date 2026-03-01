@@ -10,10 +10,57 @@ import Combine
 
 struct SettingsView: View {
     @StateObject private var viewModel = SettingsViewModel()
+    @ObservedObject private var ble = BLEManager.shared
+    @State private var showUnpairConfirmation = false
 
     var body: some View {
         NavigationStack {
             Form {
+                Section("Hardware Connection") {
+                    HStack {
+                        Text("BLE Status")
+                        Spacer()
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(ble.isConnected ? Color.green : Color.orange)
+                                .frame(width: 8, height: 8)
+                            Text(ble.isConnected ? "Connected" : "Disconnected")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    if let name = ble.connectedDeviceName {
+                        HStack {
+                            Text("Device")
+                            Spacer()
+                            Text(name)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    HStack {
+                        Text("WiFi")
+                        Spacer()
+                        Text(wifiStatusText)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Button("Unpair Device", role: .destructive) {
+                        showUnpairConfirmation = true
+                    }
+                    .confirmationDialog("Unpair Device?", isPresented: $showUnpairConfirmation) {
+                        Button("Unpair", role: .destructive) {
+                            ble.disconnect()
+                            UserDefaults.standard.removeObject(forKey: "pairedDeviceUUID")
+                        }
+                    } message: {
+                        Text("This will disconnect and forget the Smart Breaker. You'll need to pair again.")
+                    }
+                }
+
                 Section("Device Configuration") {
                     ForEach(0..<4) { channelId in
                         NavigationLink {
@@ -131,6 +178,16 @@ struct SettingsView: View {
             .onDisappear {
                 viewModel.persistToUserDefaults()
             }
+        }
+    }
+
+    private var wifiStatusText: String {
+        switch ble.wifiStatus {
+        case 0x00: return "Disconnected"
+        case 0x01: return "Connecting..."
+        case 0x02: return "Connected"
+        case 0x03: return "Failed"
+        default: return "Unknown"
         }
     }
 }

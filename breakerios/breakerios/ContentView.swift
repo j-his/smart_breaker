@@ -61,6 +61,7 @@ struct ContentView: View {
         .task {
             WebSocketManager.shared.connect()
             TTSPlayer.shared.startListening()
+            BLEManager.shared.reconnectSavedDevice()
         }
     }
 }

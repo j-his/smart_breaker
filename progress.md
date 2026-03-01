@@ -71,6 +71,11 @@
 | F12. Loading/error banners | DONE | Components/StatusBanners.swift — ConnectionStatusBanner + ErrorBanner |
 | F13. XCTest unit tests | DONE | NetworkingTests.swift — 20 tests: all REST response decoding, all WS envelope decoding, request encoding, malformed JSON |
 | F14. Xcode project configuration | DONE | PBXFileSystemSynchronizedRootGroup auto-discovers all new files — no pbxproj edits needed |
+| V1. Swift bug fixes | DONE | 4 files: Insight.stableId+CodingKeys, InsightsView .id, WS managers MainActor Task wrap, ChatWS JSONEncoder |
+| V2. Backend verification | DONE | DEMO_MODE startup OK, smoke test 9/9 PASS (fixed field name mismatches in smoke_test.py) |
+| V3. iOS build + e2e test | TODO | Requires macOS: Xcode build, 20 unit tests, full 5-tab + chat verification |
+| V4. Train full-spec TFT (d_model=192) | DONE | 5,206,372 params, 80/80 epochs, val_loss=4238.57, 947s on RTX 5070 Ti CUDA |
+| V5. Full-model demo verification | DONE | MODEL_PROFILE=gpu: checkpoint loads, inference works, 9/9 smoke test, attention+dashboard+insights all return real ML data |
 
 ## Checklists
 
@@ -82,8 +87,8 @@
 - [ ] RTX 4090 tested with PyTorch CUDA
 
 ### Demo Day
-- [ ] Model trained (AMD or local GPU)
-- [ ] Backend starts cleanly with DEMO_MODE=true
+- [x] Model trained (RTX 5070 Ti, 5.2M params, 80 epochs, val_loss=4238.57)
+- [x] Backend starts cleanly with MODEL_PROFILE=gpu DEMO_MODE=true
 - [ ] TTS speaks insights aloud
 - [ ] iOS app connects and receives WebSocket data
-- [ ] Smoke test passes 9/9
+- [x] Smoke test passes 9/9

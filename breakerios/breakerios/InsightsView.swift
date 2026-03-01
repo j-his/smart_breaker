@@ -50,7 +50,7 @@ struct InsightsView: View {
                             ForEach(viewModel.insights) { insight in
                                 InsightCard(
                                     insight: insight,
-                                    isPlaying: TTSPlayer.shared.currentInsightId == insight.insightId
+                                    isPlaying: TTSPlayer.shared.currentInsightId == insight.id
                                 )
                                 .padding(.horizontal)
                             }
