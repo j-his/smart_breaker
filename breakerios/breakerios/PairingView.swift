@@ -66,7 +66,7 @@ struct PairingView: View {
                     .fontWeight(.semibold)
             }
 
-            Text("Make sure your Smart Breaker is powered on and nearby.")
+            Text("Make sure your SaveBox is powered on and nearby.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -131,7 +131,7 @@ struct PairingView: View {
                 .font(.title2)
                 .fontWeight(.semibold)
 
-            Text("Your Smart Breaker needs WiFi to send data to the server.")
+            Text("Your SaveBox needs WiFi to send data to the server.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -162,20 +162,22 @@ struct PairingView: View {
 
             VStack(spacing: 12) {
                 Button("Complete Setup") {
-                    if !ssid.isEmpty {
+                    if ble.isConnected && !ssid.isEmpty {
                         ble.sendWiFiCredentials(ssid: ssid, password: password)
                     }
-                    isPaired = true
+                    if ble.isConnected {
+                        isPaired = true
+                    }
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-                .disabled(!ble.isConnected)
-
-                Button("Skip WiFi Setup") {
-                    isPaired = true
-                }
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .disabled(!ble.isConnected || ssid.isEmpty)
+                
+                Text("Bluetooth connection required to complete setup")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
             }
 
             Spacer()

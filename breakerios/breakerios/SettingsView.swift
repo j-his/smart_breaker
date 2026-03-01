@@ -12,6 +12,9 @@ struct SettingsView: View {
     @StateObject private var viewModel = SettingsViewModel()
     @ObservedObject private var ble = BLEManager.shared
     @State private var showUnpairConfirmation = false
+    @State private var wifiSSID = ""
+    @State private var wifiPassword = ""
+    @State private var showWiFiSentAlert = false
 
     var body: some View {
         NavigationStack {
@@ -67,6 +70,27 @@ struct SettingsView: View {
                     } message: {
                         Text("This will disconnect and forget the Smart Breaker. You'll need to pair again.")
                     }
+                }
+                
+                Section("WiFi Configuration") {
+                    TextField("WiFi Network Name (SSID)", text: $wifiSSID)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                    
+                    SecureField("WiFi Password", text: $wifiPassword)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                    
+                    Button("Send to Device") {
+                        ble.sendWiFiCredentials(ssid: wifiSSID, password: wifiPassword)
+                        showWiFiSentAlert = true
+                    }
+                    .disabled(!ble.isConnected || wifiSSID.isEmpty || wifiPassword.isEmpty)
+                }
+                .alert("WiFi Credentials Sent", isPresented: $showWiFiSentAlert) {
+                    Button("OK") { }
+                } message: {
+                    Text("The WiFi network name and password have been sent to the device. Check the WiFi status above to see if the connection is successful.")
                 }
 
                 Section("Device Configuration") {

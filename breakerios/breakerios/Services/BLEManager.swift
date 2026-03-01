@@ -129,7 +129,7 @@ extension BLEManager: CBCentralManagerDelegate {
                         advertisementData: [String: Any],
                         rssi RSSI: NSNumber) {
         let name = peripheral.name ?? ""
-        guard name.hasPrefix("EnergyAI") else { return }
+        guard name.hasPrefix("getmogged") else { return }
 
         if !discoveredPeripherals.contains(where: { $0.identifier == peripheral.identifier }) {
             discoveredPeripherals.append(peripheral)
