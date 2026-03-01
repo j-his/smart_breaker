@@ -100,42 +100,42 @@ void setup() {
   EPD_Display_Clear();       // Clear the screen content
   EPD_Update();              // Update the screen display
 
-  // display_image(gImage_device_interface2, 0, 0, 792, 272);
-  delay(1000);
+  // // display_image(gImage_device_interface2, 0, 0, 792, 272);
+  // delay(1000);
   
-  // Center coordinates for a 70x70 square on a 792x272 screen
-  // x = (792 - 70) / 2 = 361
-  // y = (272 - 70) / 2 = 101
-  draw_image_to_buffer(square, 361, 101, 70, 70);
-  update_screen();
-  delay(1000);
+  // // Center coordinates for a 70x70 square on a 792x272 screen
+  // // x = (792 - 70) / 2 = 361
+  // // y = (272 - 70) / 2 = 101
+  // draw_image_to_buffer(square, 361, 101, 70, 70);
+  // update_screen();
+  // delay(1000);
   
-  // Add more black squares around the center
-  draw_image_to_buffer(square, 261, 101, 70, 70); // Left square
-  update_screen();
-  digitalWrite(21, HIGH);
-  delay(1000);
-  digitalWrite(21, LOW);
+  // // Add more black squares around the center
+  // draw_image_to_buffer(square, 261, 101, 70, 70); // Left square
+  // update_screen();
+  // digitalWrite(21, HIGH);
+  // delay(1000);
+  // digitalWrite(21, LOW);
 
-  draw_image_to_buffer(square, 461, 101, 70, 70); // Right square
-  update_screen();
-  digitalWrite(17, HIGH);
-  delay(1000);
-  digitalWrite(17, LOW);
+  // draw_image_to_buffer(square, 461, 101, 70, 70); // Right square
+  // update_screen();
+  // digitalWrite(17, HIGH);
+  // delay(1000);
+  // digitalWrite(17, LOW);
 
-  draw_image_to_buffer(square, 361, 21,  70, 70); // Top square
-  update_screen();
-  digitalWrite(19, HIGH);
-  delay(1000);
-  digitalWrite(19, LOW);
+  // draw_image_to_buffer(square, 361, 21,  70, 70); // Top square
+  // update_screen();
+  // digitalWrite(19, HIGH);
+  // delay(1000);
+  // digitalWrite(19, LOW);
 
-  draw_image_to_buffer(square, 361, 181, 70, 70); // Bottom square
-  update_screen();
-  digitalWrite(15, HIGH);
-  delay(1000);
-  digitalWrite(15, LOW);
+  // draw_image_to_buffer(square, 361, 181, 70, 70); // Bottom square
+  // update_screen();
+  // digitalWrite(15, HIGH);
+  // delay(1000);
+  // digitalWrite(15, LOW);
   
-  delay(5000);               // Wait for 5000 milliseconds (5 seconds)
+  // delay(5000);               // Wait for 5000 milliseconds (5 seconds)
 
   clear_all();               // Call the clear_all function to clear the screen content
 }
@@ -180,14 +180,26 @@ void loop() {
     for (uint8_t t = 0; t < 4; t++) {
       tcaSelect(t);
       displays[t].clearDisplay();
-      displays[t].setTextSize(1);
-      displays[t].setCursor(0,0);
-      displays[t].print("Breaker ");
-      displays[t].println(t + 1);
       
-      displays[t].print("Current: ");
-      displays[t].print(Irms[t], 2);
-      displays[t].println(" A");
+      String currentStr = String(Irms[t], 2) + "A";
+      
+      displays[t].setTextSize(3);
+      
+      // Calculate text width to center it (approx. 12 pixels per character for size 2)
+      int textWidth = currentStr.length() * 12;
+      int x = (SCREEN_WIDTH - textWidth) / 2;
+      
+      // Center vertically as well (height is approx 16 pixels for size 2, on a 32px high screen)
+      int y = (SCREEN_HEIGHT - 16) / 2;
+      
+      displays[t].setCursor(x, y);
+      displays[t].print(currentStr);
+
+      // Display the small screen/breaker number in the bottom left corner
+      displays[t].setTextSize(1);
+      displays[t].setCursor(0, SCREEN_HEIGHT - 8); // Size 1 text is 8 pixels high
+      displays[t].print(t + 1);
+
       displays[t].display();
     }
   }
