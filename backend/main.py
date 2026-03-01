@@ -163,7 +163,7 @@ async def ws_chat(websocket: WebSocket):
 
             system_prompt = build_system_prompt(
                 sensor_state=sensor_state,
-                grid_status=grid_cache.get_current(),
+                grid_status=await grid_cache.get_current(),
                 optimization=_state.get("last_optimization"),
             )
 

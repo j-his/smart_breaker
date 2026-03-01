@@ -98,7 +98,7 @@ async def health():
 
 @api_router.get("/dashboard")
 async def dashboard():
-    grid = grid_cache.get_current()
+    grid = await grid_cache.get_current()
     watts = [0.0, 0.0, 0.0, 0.0]
     if sensor_buffer.size > 0:
         window = sensor_buffer.get_window()
@@ -121,7 +121,7 @@ async def dashboard():
 
 @api_router.get("/forecast")
 async def forecast():
-    grid_forecast = grid_cache.get_forecast()
+    grid_forecast = await grid_cache.get_forecast()
     return {"grid_forecast_24h": grid_forecast}
 
 

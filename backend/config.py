@@ -9,10 +9,16 @@ from pathlib import Path
 from dataclasses import dataclass, field
 from dotenv import load_dotenv
 
-load_dotenv()
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load keys.env from project root or parent directory
+_keys_env = BASE_DIR / "keys.env"
+if not _keys_env.exists():
+    _keys_env = BASE_DIR.parent / "keys.env"
+load_dotenv(_keys_env)
+load_dotenv()  # also load .env if present (lower priority — won't overwrite)
 
 # ── Paths ────────────────────────────────────────────────────────────────────
-BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 MODEL_DIR = DATA_DIR / "checkpoints"
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
@@ -104,8 +110,10 @@ SYNTH_OUTPUT = DATA_DIR / "synthetic_household.parquet"
 SYNTH_CALENDARS_DIR = DATA_DIR / "calendars"
 
 # ── Grid / TOU ───────────────────────────────────────────────────────────────
-WATTTIME_API_KEY = os.getenv("WATTTIME_API_KEY", "")
-WATTTIME_REGION = "CAISO_PGE"
+WATTTIME_USERNAME = os.getenv("WATTTIME_USERNAME", "")
+WATTTIME_PASSWORD = os.getenv("WATTTIME_PASSWORD", "")
+WATTTIME_REGION = os.getenv("WATTTIME_REGION", "CAISO_NORTH")
+WATTTIME_BASE_URL = "https://api.watttime.org"
 GRID_CACHE_TTL_S = 300  # 5 minutes
 
 # ── LLM (Groq) ──────────────────────────────────────────────────────────────
@@ -142,7 +150,7 @@ DEMO_TIME_SCALE = 900  # 1 real second = 15 simulated minutes
 
 # ── Feature Flags ────────────────────────────────────────────────────────────
 ENABLE_LLM = os.getenv("ENABLE_LLM", "true").lower() == "true"
-ENABLE_WATTTIME = bool(WATTTIME_API_KEY)
+ENABLE_WATTTIME = bool(WATTTIME_USERNAME and WATTTIME_PASSWORD)
 ENABLE_HARDWARE_RELAY = os.getenv("ENABLE_RELAY", "false").lower() == "true"
 
 # ── Channel Assignment Defaults (demo) ───────────────────────────────────────
