@@ -272,6 +272,44 @@ void EPD_Display(const uint8_t *ImageBW)
   }
 }
 
+// Write image data to OLD frame buffer registers (0x26/0xA6)
+// Required after partial update so the next partial refresh has the correct baseline
+void EPD_DisplayOld(const uint8_t *ImageBW)
+{
+  uint32_t i;
+  uint8_t tempOriginal;
+  uint32_t tempcol = 0;
+  uint32_t templine = 0;
+  EPD_SetRAMMP();
+  EPD_SetRAMMA();
+  EPD_WR_REG(0x26);   // Old frame buffer (master)
+  for (i = 0; i < ALLSCREEN_BYTES; i++)
+  {
+    tempOriginal = *(ImageBW + templine * Source_BYTES * 2 + tempcol);
+    templine++;
+    if (templine >= Gate_BITS)
+    {
+      tempcol++;
+      templine = 0;
+    }
+    EPD_WR_DATA8(tempOriginal);
+  }
+  EPD_SetRAMSP();
+  EPD_SetRAMSA();
+  EPD_WR_REG(0xA6);   // Old frame buffer (slave)
+  for (i = 0; i < ALLSCREEN_BYTES; i++)
+  {
+    tempOriginal = *(ImageBW + templine * Source_BYTES * 2 + tempcol);
+    templine++;
+    if (templine >= Gate_BITS)
+    {
+      tempcol++;
+      templine = 0;
+    }
+    EPD_WR_DATA8(tempOriginal);
+  }
+}
+
 //Horizontal scanning, from right to left, from bottom to top
 void EPD_WhiteScreen_ALL_Fast(const unsigned char *datas)
 {

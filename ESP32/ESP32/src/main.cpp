@@ -56,6 +56,10 @@ unsigned long lastDebounceTime[4] = {0, 0, 0, 0};
 unsigned long debounceDelay = 50;
 
 volatile bool needEpdUpdate = false;
+unsigned long lastEpdRefresh = 0;
+const unsigned long EPD_MIN_INTERVAL = 2000; // Minimum 2s between EPD refreshes
+volatile bool needBrkSave = false; // Deferred NVS save flag for button presses
+volatile bool enterPairingMode = false; // Set by button combo hold
 
 class MyServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
@@ -191,7 +195,28 @@ void draw_image_to_buffer(uint8_t *image, int x, int y, int w, int h);
 void update_screen();
 
 void buttonTask(void *pvParameters) {
+  unsigned long comboHoldStart = 0;
+  bool comboTriggered = false;
+  const unsigned long COMBO_HOLD_MS = 3000; // Hold 3 seconds
+
   for(;;) {
+    // --- Detect button 1+2 held simultaneously ---
+    bool btn1Held = (digitalRead(buttonPins[0]) == LOW);
+    bool btn2Held = (digitalRead(buttonPins[1]) == LOW);
+    if (btn1Held && btn2Held) {
+      if (comboHoldStart == 0) {
+        comboHoldStart = millis();
+        comboTriggered = false;
+      } else if (!comboTriggered && (millis() - comboHoldStart >= COMBO_HOLD_MS)) {
+        comboTriggered = true;
+        enterPairingMode = true;
+      }
+    } else {
+      comboHoldStart = 0;
+      comboTriggered = false;
+    }
+
+    // --- Normal per-button toggle logic ---
     for (int i = 0; i < 4; i++) {
       int reading = digitalRead(buttonPins[i]);
       
@@ -207,12 +232,7 @@ void buttonTask(void *pvParameters) {
             relayState[i] = !relayState[i];
             digitalWrite(relayPins[i], relayState[i] ? HIGH : LOW);
             
-            uint8_t stateBitmap = 0;
-            for(int j = 0; j < 4; j++) {
-                if(relayState[j]) stateBitmap |= (1 << j);
-            }
-            preferences.putUChar("brkStat", stateBitmap);
-            updateBreakerStateBLE();
+            needBrkSave = true;  // Defer NVS write to main loop (needs more stack)
             
             needEpdUpdate = true;
           }
@@ -225,7 +245,7 @@ void buttonTask(void *pvParameters) {
 }
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600);
   Wire.begin(3, 9); // Initialize I2C with SDA=3, SCL=9 for the TCA9548A multiplexer
 
   analogReadResolution(12);   // 12-bit resolution
@@ -271,7 +291,7 @@ void setup() {
     digitalWrite(relayPins[i], relayState[i] ? HIGH : LOW);
   }
 
-  BLEDevice::init("EnergyAI-4A40");
+  BLEDevice::init("getmogged-pro-9000");
   pServer = BLEDevice::createServer();
   pServer->setCallbacks(new MyServerCallbacks());
 
@@ -314,7 +334,7 @@ void setup() {
   pAdvertising->addServiceUUID(SERVICE_UUID);
   pAdvertising->setScanResponse(true);
   pAdvertising->setMinPreferred(0x06);
-  pAdvertising->setMinPreferred(0x12);
+  pAdvertising->setMaxPreferred(0x12);
   BLEDevice::startAdvertising();
 
   updateBreakerStateBLE();
@@ -335,7 +355,7 @@ void setup() {
   xTaskCreatePinnedToCore(
     buttonTask,
     "ButtonTask",
-    2048,
+    4096,
     NULL,
     1,
     NULL,
@@ -345,6 +365,38 @@ void setup() {
 
 
 void loop() {
+  // Handle BLE pairing mode triggered by holding buttons 1+2 for 3s
+  if (enterPairingMode) {
+    enterPairingMode = false;
+    Serial.println("Entering BLE pairing mode...");
+
+    // Clear stored WiFi credentials
+    preferences.remove("ssid");
+    preferences.remove("pass");
+    wifiSsid = "";
+    wifiPass = "";
+    WiFi.disconnect();
+    wifiStatus = 0x00;
+    updateWifiStateBLE();
+
+    // Restart BLE advertising
+    BLEDevice::startAdvertising();
+    Serial.println("BLE advertising restarted");
+
+    needEpdUpdate = true;
+  }
+
+  // Handle deferred NVS save + BLE notify from button task
+  if (needBrkSave) {
+    needBrkSave = false;
+    uint8_t stateBitmap = 0;
+    for (int i = 0; i < 4; i++) {
+      if (relayState[i]) stateBitmap |= (1 << i);
+    }
+    preferences.putUChar("brkStat", stateBitmap);
+    updateBreakerStateBLE();
+  }
+
   if (wifiStatus == 0x01) {
     if (WiFi.status() == WL_CONNECTED) {
       wifiStatus = 0x02; // connected
@@ -357,31 +409,60 @@ void loop() {
     }
   }
 
-  // Main loop function
-  if (needEpdUpdate) {
+  // Main loop function — rate-limit EPD refreshes
+  if (needEpdUpdate && (millis() - lastEpdRefresh >= EPD_MIN_INTERVAL)) {
     needEpdUpdate = false;
+    lastEpdRefresh = millis();
     
     // Clear the buffer
     Paint_Clear(WHITE);
 
-    // Draw wifi status string
-    String wifiStr = "Wi-Fi: Disconnected";
-    if (wifiStatus == 0x01) wifiStr = "Wi-Fi: Connecting...";
-    else if (wifiStatus == 0x02) {
-      wifiStr = "Wi-Fi: Connected | IP: ";
-      wifiStr += WiFi.localIP().toString();
-    }
-    else if (wifiStatus == 0x03) wifiStr = "Wi-Fi: Failed";
-    
-    EPD_ShowString(10, 10, wifiStr.c_str(), 16, BLACK);
+    // --- WiFi status indicator (top-left) ---
+    const char* wifiStr;
+    if (wifiStatus == 0x01)      wifiStr = "WiFi: Connecting...";
+    else if (wifiStatus == 0x02) wifiStr = "WiFi: Connected";
+    else if (wifiStatus == 0x03) wifiStr = "WiFi: Failed";
+    else if (wifiSsid == "")     wifiStr = "BLE Pairing Ready";
+    else                         wifiStr = "WiFi: Disconnected";
+    EPD_ShowString(10, 5, wifiStr, 16, BLACK);
 
-    // Draw breaker buttons
+    // Show IP address beside WiFi status if connected
+    if (wifiStatus == 0x02) {
+      String ipStr = "IP: " + WiFi.localIP().toString();
+      EPD_ShowString(10, 24, ipStr.c_str(), 16, BLACK);
+    }
+
+    // WiFi status icon (filled/hollow circle, top-right)
+    if (wifiStatus == 0x02) {
+      EPD_DrawCircle(760, 15, 10, BLACK, 1);  // Filled = connected
+    } else {
+      EPD_DrawCircle(760, 15, 10, BLACK, 0);  // Hollow = not connected
+    }
+
+    // Separator line below WiFi bar
+    EPD_DrawLine(0, 44, 791, 44, BLACK);
+
+    // --- Draw relay blocks with labels ---
+    const char* relayLabels[4] = {"CH1", "CH2", "CH3", "CH4"};
     for (int i = 0; i < 4; i++) {
+      // Channel label above the square (48px font, 24px char width)
+      int labelW = 3 * 24; // "CHx" = 72px wide at 48px font
+      int labelX = relayX[i] + (70 - labelW) / 2;
+      EPD_ShowString(labelX, relayY[i] - 55, relayLabels[i], 48, BLACK);
+
+      // Relay state: filled rectangle = ON, outlined rectangle = OFF
       if (relayState[i]) {
-        draw_image_to_buffer(square, relayX[i], relayY[i], 70, 70);
+        EPD_DrawRectangle(relayX[i], relayY[i], relayX[i] + 70, relayY[i] + 70, BLACK, 1);
       } else {
-        draw_image_to_buffer(square2, relayX[i], relayY[i], 70, 70);
+        EPD_DrawRectangle(relayX[i], relayY[i], relayX[i] + 70, relayY[i] + 70, BLACK, 0);
       }
+
+      // ON/OFF label below the square (24px font)
+      const char* stStr = relayState[i] ? "ON" : "OFF";
+      int stLen = relayState[i] ? 2 : 3;
+      int stW = stLen * 12; // 12px per char at size 24
+      int stX = relayX[i] + (70 - stW) / 2;
+      EPD_ShowString(stX, relayY[i] + 78, stStr, 24, BLACK);
     }
     update_screen();
   }
@@ -491,9 +572,11 @@ void draw_image_to_buffer(uint8_t *image, int x, int y, int w, int h) {
     }
 }
 
+// Full update using fast-mode LUT — always drives all pixels correctly
+// No old-vs-new buffer comparison needed, so toggling ON/OFF always works
 void update_screen() {
-    EPD_HW_RESET();
-    EPD_Display(ImageBW);      // Display the image stored in the ImageBW array
-    EPD_PartUpdate();          // Update part of the screen to show the new content
+    EPD_FastMode1Init();        // Load fast waveform LUT (includes HW reset)
+    EPD_Display(ImageBW);       // Write image to new frame registers
+    EPD_Update();               // Full waveform — drives every pixel to match buffer
     EPD_DeepSleep();
 }
