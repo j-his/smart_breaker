@@ -30,6 +30,15 @@ void tcaSelect(uint8_t i) {
   Wire.endTransmission();
 }
 
+// --------- Pin Configuration ----------
+const int ctPins[4] = {8, 14, 16, 18};
+
+// --------- CT Parameters ----------
+const float BURDEN = 100.0;     // ohms
+const float TURNS  = 2000.0;    // CT ratio
+const float ADC_REF = 3.3;      
+const int   ADC_MAX = 4095;     
+
 uint8_t ImageBW[27200];      // Declare an array of 27200 bytes to store black and white image data
 
 uint8_t ImageTest[27200];
@@ -45,6 +54,12 @@ void update_screen();
 void setup() {
   Serial.begin(115200);
   Wire.begin(3, 9); // Initialize I2C with SDA=3, SCL=9 for the TCA9548A multiplexer
+
+  analogReadResolution(12);   // 12-bit resolution
+
+  for (int i = 0; i < 4; i++) {
+    analogSetPinAttenuation(ctPins[i], ADC_11db);
+  }
 
   for (uint8_t t=0; t<4; t++) {
     tcaSelect(t);
@@ -132,43 +147,49 @@ void loop() {
   if (millis() - lastUpdate > 1000) {
     lastUpdate = millis();
 
-    // Screen 1: Displays text and a counter
-    tcaSelect(0);
-    displays[0].clearDisplay();
-    displays[0].setTextSize(1);
-    displays[0].setCursor(0,0);
-    displays[0].println("Breaker 1: Normal");
-    displays[0].print("Uptime: ");
-    displays[0].print(millis() / 1000);
-    displays[0].println("s");
-    displays[0].display();
+    const int samples = 2000;
+    double sum[4] = {0,0,0,0};
 
-    // Screen 2: Displays a line
-    tcaSelect(1);
-    displays[1].clearDisplay();
-    displays[1].setTextSize(1);
-    displays[1].setCursor(0,0);
-    displays[1].println("Breaker 2: Alert");
-    displays[1].drawLine(0, 16, 127, 31, SSD1306_WHITE);
-    displays[1].display();
+    for (int i = 0; i < samples; i++) {
+      for (int ch = 0; ch < 4; ch++) {
+        int raw = analogRead(ctPins[ch]);
 
-    // Screen 3: Displays a rectangle
-    tcaSelect(2);
-    displays[2].clearDisplay();
-    displays[2].setTextSize(1);
-    displays[2].setCursor(0,0);
-    displays[2].println("Breaker 3: Off");
-    displays[2].drawRect(10, 10, 100, 20, SSD1306_WHITE);
-    displays[2].display();
+        // Center around midpoint (1.65V ≈ 2048 ADC counts)
+        double voltage = (raw - (ADC_MAX / 2.0)) * (ADC_REF / ADC_MAX);
 
-    // Screen 4: Displays a circle
-    tcaSelect(3);
-    displays[3].clearDisplay();
-    displays[3].setTextSize(1);
-    displays[3].setCursor(0,0);
-    displays[3].println("Breaker 4: On");
-    displays[3].drawCircle(64, 16, 15, SSD1306_WHITE);
-    displays[3].display();
+        sum[ch] += voltage * voltage;
+      }
+    }
+
+    double Irms[4];
+    for (int ch = 0; ch < 4; ch++) {
+      double Vrms = sqrt(sum[ch] / samples);
+
+      // Convert voltage to primary current
+      Irms[ch] = ((Vrms / BURDEN) * TURNS)-1.75;
+
+      Serial.print("CT");
+      Serial.print(ch);
+      Serial.print(": ");
+      Serial.print(Irms[ch], 3);
+      Serial.print(" A   ");
+    }
+    Serial.println();
+
+    // Update Screens
+    for (uint8_t t = 0; t < 4; t++) {
+      tcaSelect(t);
+      displays[t].clearDisplay();
+      displays[t].setTextSize(1);
+      displays[t].setCursor(0,0);
+      displays[t].print("Breaker ");
+      displays[t].println(t + 1);
+      
+      displays[t].print("Current: ");
+      displays[t].print(Irms[t], 2);
+      displays[t].println(" A");
+      displays[t].display();
+    }
   }
 }
 
