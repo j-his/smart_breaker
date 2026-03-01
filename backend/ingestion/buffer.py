@@ -31,6 +31,10 @@ class SensorBuffer:
     def size(self) -> int:
         return len(self._buffer)
 
+    @property
+    def capacity(self) -> int:
+        return self._window_size
+
     def get_window(self) -> np.ndarray:
         """Return buffer contents as numpy array (window_size, n_features).
 

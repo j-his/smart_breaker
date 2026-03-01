@@ -98,7 +98,7 @@ async def health():
     return {
         "status": "ok",
         "hardware_connected": hardware_fallback.is_hardware_connected,
-        "buffer_fill": sensor_buffer.size,
+        "buffer_fill": f"{sensor_buffer.size}/{sensor_buffer.capacity}",
         "ws_clients": ws_manager.client_count,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
