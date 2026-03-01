@@ -47,11 +47,10 @@ struct ContentView: View {
             Button { showingChat = true } label: {
                 Image(systemName: "bubble.left.and.bubble.right.fill")
                     .font(.title2)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.white.opacity(0.9))
                     .frame(width: 56, height: 56)
-                    .background(Circle().fill(Color.blue))
-                    .shadow(radius: 4)
             }
+            .glassEffect(.regular.tint(.blue.opacity(0.15)).interactive(), in: .circle)
             .padding(.trailing, 20)
             .padding(.bottom, 80)
         }

@@ -400,6 +400,7 @@
 				DEVELOPMENT_TEAM = WF7R53VRB7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Savebox;
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "connect to device";
 				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "connect to device";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -434,6 +435,7 @@
 				DEVELOPMENT_TEAM = WF7R53VRB7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Savebox;
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "connect to device";
 				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "connect to device";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
