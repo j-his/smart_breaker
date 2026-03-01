@@ -123,4 +123,8 @@ class APIClient {
     func importCalendar(_ req: CalendarImportRequest) async throws -> CalendarImportResponse {
         try await post("/api/calendar/import", body: req)
     }
+
+    func getVoices() async throws -> VoicesResponse {
+        try await get("/api/voices")
+    }
 }

@@ -365,10 +365,12 @@ struct SettingsRequest: Codable {
     let alpha: Double?
     let beta: Double?
     let narrationEnabled: Bool?
+    let voiceId: String?
 
     enum CodingKeys: String, CodingKey {
         case alpha, beta
         case narrationEnabled = "narration_enabled"
+        case voiceId = "voice_id"
     }
 }
 
@@ -376,10 +378,29 @@ struct SettingsResponse: Codable {
     let alpha: Double
     let beta: Double
     let narrationEnabled: Bool?
+    let voiceId: String?
 
     enum CodingKeys: String, CodingKey {
         case alpha, beta
         case narrationEnabled = "narration_enabled"
+        case voiceId = "voice_id"
+    }
+}
+
+struct VoiceOption: Codable, Identifiable {
+    let id: String
+    let name: String
+    let desc: String
+    let gender: String
+}
+
+struct VoicesResponse: Codable {
+    let voices: [VoiceOption]
+    let currentVoiceId: String
+
+    enum CodingKeys: String, CodingKey {
+        case voices
+        case currentVoiceId = "current_voice_id"
     }
 }
 

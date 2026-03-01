@@ -42,6 +42,7 @@ class SettingsRequest(BaseModel):
     alpha: float | None = None
     beta: float | None = None
     narration_enabled: bool | None = None
+    voice_id: str | None = None
 
 
 class CalendarImportRequest(BaseModel):
@@ -58,6 +59,7 @@ _state: dict = {
     "beta": 0.5,
     "insights": [],
     "narration_enabled": True,
+    "voice_id": config.ELEVENLABS_VOICE_ID,
 }
 
 
@@ -227,18 +229,40 @@ async def update_settings(settings: SettingsRequest):
         _state["beta"] = settings.beta
     if settings.narration_enabled is not None:
         _state["narration_enabled"] = settings.narration_enabled
+    if settings.voice_id is not None:
+        _state["voice_id"] = settings.voice_id
 
     await event_bus.publish(SETTINGS_CHANGED, {
         "alpha": _state["alpha"],
         "beta": _state["beta"],
         "narration_enabled": _state["narration_enabled"],
+        "voice_id": _state["voice_id"],
     })
 
     return {
         "alpha": _state["alpha"],
         "beta": _state["beta"],
         "narration_enabled": _state["narration_enabled"],
+        "voice_id": _state["voice_id"],
     }
+
+
+@api_router.get("/voices")
+async def get_voices():
+    """Return available TTS voices, with the current selection marked."""
+    voices = [
+        {"id": "JBFqnCBsd6RMkjVDRZzb", "name": "George", "desc": "Warm British Storyteller", "gender": "male"},
+        {"id": "EXAVITQu4vr4xnSDxMaL", "name": "Sarah", "desc": "Mature, Reassuring", "gender": "female"},
+        {"id": "Xb7hH8MSUJpSbSDYk0k2", "name": "Alice", "desc": "Clear British Educator", "gender": "female"},
+        {"id": "cjVigY5qzO86Huf0OWal", "name": "Eric", "desc": "Smooth, Trustworthy", "gender": "male"},
+        {"id": "cgSgspJ2msm6clMCkdW9", "name": "Jessica", "desc": "Playful, Bright, Warm", "gender": "female"},
+        {"id": "SAz9YHcvj6GT2YYXdXww", "name": "River", "desc": "Relaxed, Neutral", "gender": "neutral"},
+        {"id": "IKne3meq5aSn9XLyUdCD", "name": "Charlie", "desc": "Deep Australian", "gender": "male"},
+        {"id": "XrExE9yKIg1WjnnlVkGX", "name": "Matilda", "desc": "Professional, Knowledgeable", "gender": "female"},
+        {"id": "TX3LPaxmHKxFdv7VOQHJ", "name": "Liam", "desc": "Energetic, Young", "gender": "male"},
+        {"id": "CwhRBWXzGAHq8TQ4Fs17", "name": "Roger", "desc": "Laid-Back, Casual", "gender": "male"},
+    ]
+    return {"voices": voices, "current_voice_id": _state["voice_id"]}
 
 
 @api_router.get("/insights")

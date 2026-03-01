@@ -22,6 +22,15 @@ def get_tts_client():
     return _tts_client
 
 
+def _get_active_voice_id() -> str:
+    """Get the currently selected voice ID from app state, falling back to config."""
+    try:
+        from backend.api.routes import _state
+        return _state.get("voice_id", config.ELEVENLABS_VOICE_ID)
+    except ImportError:
+        return config.ELEVENLABS_VOICE_ID
+
+
 async def text_to_speech_stream(
     text: str,
     insight_id: str,
@@ -33,7 +42,7 @@ async def text_to_speech_stream(
     """
     client = get_tts_client()
     audio_stream = client.text_to_speech.convert(
-        voice_id=config.ELEVENLABS_VOICE_ID,
+        voice_id=_get_active_voice_id(),
         text=text,
         model_id=config.ELEVENLABS_MODEL_ID,
         output_format=config.ELEVENLABS_OUTPUT_FORMAT,

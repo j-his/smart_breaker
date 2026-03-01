@@ -208,9 +208,32 @@ struct SettingsView: View {
                 Section("Narration") {
                     Toggle("Enable Narration", isOn: $viewModel.narrationEnabled)
 
-                    Text("When enabled, the AI will narrate energy insights and speak them aloud.")
+                    Text("When enabled, the AI will narrate energy insights and speak chatbot responses aloud.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+
+                    if viewModel.narrationEnabled {
+                        if viewModel.isLoadingVoices {
+                            HStack {
+                                Text("Loading voices...")
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                ProgressView()
+                            }
+                        } else if !viewModel.availableVoices.isEmpty {
+                            Picker("Voice", selection: $viewModel.selectedVoiceId) {
+                                ForEach(viewModel.availableVoices) { voice in
+                                    HStack {
+                                        Text(voice.name)
+                                        Text("— \(voice.desc)")
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    .tag(voice.id)
+                                }
+                            }
+                            .pickerStyle(.navigationLink)
+                        }
+                    }
 
                     Button("Save") {
                         Task { await viewModel.saveSettings() }
@@ -232,6 +255,9 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .task {
+                await viewModel.fetchVoices()
+            }
             .onDisappear {
                 viewModel.persistToUserDefaults()
             }
@@ -324,6 +350,9 @@ class SettingsViewModel: ObservableObject {
     @Published var connectionTestResult: String?
     @Published var isSaving = false
     @Published var narrationEnabled: Bool = true
+    @Published var selectedVoiceId: String = ""
+    @Published var availableVoices: [VoiceOption] = []
+    @Published var isLoadingVoices = false
     @Published var anomalyAlertsEnabled: Bool = true
     @Published var gridStatusAlertsEnabled: Bool = true
     @Published var optimizationAlertsEnabled: Bool = true
@@ -356,11 +385,30 @@ class SettingsViewModel: ObservableObject {
         }
     }
 
+    func fetchVoices() async {
+        isLoadingVoices = true
+        do {
+            let response = try await APIClient.shared.getVoices()
+            availableVoices = response.voices
+            if selectedVoiceId.isEmpty {
+                selectedVoiceId = response.currentVoiceId
+            }
+        } catch {
+            // Silently fail — voices section just won't show options
+        }
+        isLoadingVoices = false
+    }
+
     func saveSettings() async {
         isSaving = true
         persistToUserDefaults()
 
-        let request = SettingsRequest(alpha: alpha, beta: beta, narrationEnabled: narrationEnabled)
+        let request = SettingsRequest(
+            alpha: alpha,
+            beta: beta,
+            narrationEnabled: narrationEnabled,
+            voiceId: selectedVoiceId.isEmpty ? nil : selectedVoiceId
+        )
         _ = try? await APIClient.shared.updateSettings(request)
         isSaving = false
     }
@@ -376,6 +424,7 @@ class SettingsViewModel: ObservableObject {
         UserDefaults.standard.set(alpha, forKey: "alpha")
         UserDefaults.standard.set(beta, forKey: "beta")
         UserDefaults.standard.set(narrationEnabled, forKey: "narrationEnabled")
+        UserDefaults.standard.set(selectedVoiceId, forKey: "selectedVoiceId")
         UserDefaults.standard.set(anomalyAlertsEnabled, forKey: "anomalyAlerts")
         UserDefaults.standard.set(gridStatusAlertsEnabled, forKey: "gridStatusAlerts")
         UserDefaults.standard.set(optimizationAlertsEnabled, forKey: "optimizationAlerts")
@@ -386,6 +435,7 @@ class SettingsViewModel: ObservableObject {
         alpha = 0.5
         beta = 0.5
         narrationEnabled = true
+        selectedVoiceId = ""
         anomalyAlertsEnabled = true
         gridStatusAlertsEnabled = true
         optimizationAlertsEnabled = true
@@ -405,6 +455,7 @@ class SettingsViewModel: ObservableObject {
         }
 
         narrationEnabled = UserDefaults.standard.object(forKey: "narrationEnabled") as? Bool ?? true
+        selectedVoiceId = UserDefaults.standard.string(forKey: "selectedVoiceId") ?? ""
         anomalyAlertsEnabled = UserDefaults.standard.object(forKey: "anomalyAlerts") as? Bool ?? true
         gridStatusAlertsEnabled = UserDefaults.standard.object(forKey: "gridStatusAlerts") as? Bool ?? true
         optimizationAlertsEnabled = UserDefaults.standard.object(forKey: "optimizationAlerts") as? Bool ?? true
