@@ -33,11 +33,11 @@
 | 17. MILP optimizer | DONE | OR-Tools CP-SAT, cost+carbon objective, breaker constraint, 4/4 tests |
 | 18. Optimizer orchestrator | DONE | End-to-end pipeline: grid→bridge→MILP→results, 3/3 tests |
 | 19. Calendar generator | DONE | iCal export with moved-event annotations, WS envelope, 3/3 tests |
-| 20. Ingestion layer | TODO | |
-| 21. WebSocket manager | TODO | |
-| 22. REST routes | TODO | |
-| 23. Main app | TODO | |
-| 24. Background scheduler + cache | TODO | |
+| 20. Ingestion layer | DONE | Pydantic validator, ring buffer, hardware fallback, receiver singletons — 9/9 tests |
+| 21. WebSocket manager | DONE | ConnectionManager with async lock, broadcast, make_envelope — 3/3 tests |
+| 22. REST routes | DONE | 10 endpoints: health, dashboard, forecast, schedule, tasks, calendar, sensor, settings, insights, attention — 7/7 tests |
+| 23. Main app | DONE | FastAPI + CORS + WS /ws/live + /ws/chat + synthetic data loop — 3/3 tests |
+| 24. Background scheduler + cache | DONE | optimization_loop (900s), grid_refresh_loop (300s), TTLCache — 4/4 tests |
 | 25. LLM context | TODO | |
 | 26. LLM chat | TODO | |
 | 27. LLM narrator | TODO | |
