@@ -207,6 +207,9 @@ struct SettingsView: View {
 
                 Section("Narration") {
                     Toggle("Enable Narration", isOn: $viewModel.narrationEnabled)
+                        .onChange(of: viewModel.narrationEnabled) {
+                            Task { await viewModel.saveSettings() }
+                        }
 
                     Text("When enabled, the AI will narrate energy insights and speak chatbot responses aloud.")
                         .font(.caption)
@@ -218,11 +221,9 @@ struct SettingsView: View {
                                 .tag(voice.id)
                         }
                     }
-
-                    Button("Save") {
+                    .onChange(of: viewModel.selectedVoiceId) {
                         Task { await viewModel.saveSettings() }
                     }
-                    .disabled(viewModel.isSaving)
                 }
 
                 Section("Notifications") {
