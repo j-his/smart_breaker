@@ -48,7 +48,7 @@ class BLEManager: NSObject, ObservableObject {
         discoveredPeripherals.removeAll()
         isScanning = true
         centralManager.scanForPeripherals(
-            withServices: [Self.serviceUUID],
+            withServices: nil,
             options: [CBCentralManagerScanOptionAllowDuplicatesKey: false]
         )
     }

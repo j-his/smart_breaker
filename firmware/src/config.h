@@ -5,7 +5,7 @@
 // ============================================================
 
 // --- Device Identity ---
-#define DEVICE_NAME_PREFIX "EnergyAI"
+#define DEVICE_NAME_PREFIX "getmogged-pro"
 #define NUM_CHANNELS 4
 
 // --- CT Clamp ADC Pins (SCT-013-000) ---
