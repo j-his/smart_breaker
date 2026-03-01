@@ -29,6 +29,8 @@ class BLEManager: NSObject, ObservableObject {
     @Published var breakerStates: [Bool] = [true, true, true, true]
     @Published var wifiStatus: UInt8 = 0x00
     @Published var connectedDeviceName: String?
+    @Published var debugLog: [String] = []
+    @Published var bluetoothState: String = "unknown"
 
     // MARK: - Private
 
@@ -41,16 +43,30 @@ class BLEManager: NSObject, ObservableObject {
         centralManager = CBCentralManager(delegate: self, queue: nil)
     }
 
+    private func log(_ msg: String) {
+        let entry = "[\(Date().formatted(.dateTime.hour().minute().second()))] \(msg)"
+        print("[BLE] \(msg)")
+        DispatchQueue.main.async {
+            self.debugLog.append(entry)
+            if self.debugLog.count > 50 { self.debugLog.removeFirst() }
+        }
+    }
+
     // MARK: - Public API
 
     func startScanning() {
-        guard centralManager.state == .poweredOn else { return }
+        log("startScanning called, BT state: \(centralManager.state.rawValue)")
+        guard centralManager.state == .poweredOn else {
+            log("ERROR: Bluetooth not powered on (state=\(centralManager.state.rawValue))")
+            return
+        }
         discoveredPeripherals.removeAll()
         isScanning = true
         centralManager.scanForPeripherals(
             withServices: nil,
             options: [CBCentralManagerScanOptionAllowDuplicatesKey: false]
         )
+        log("Scanning started (no service filter, name filter only)")
     }
 
     func stopScanning() {
@@ -119,6 +135,10 @@ class BLEManager: NSObject, ObservableObject {
 
 extension BLEManager: CBCentralManagerDelegate {
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
+        let states = ["unknown", "resetting", "unsupported", "unauthorized", "poweredOff", "poweredOn"]
+        let stateStr = central.state.rawValue < states.count ? states[central.state.rawValue] : "?\(central.state.rawValue)"
+        bluetoothState = stateStr
+        log("BT state changed: \(stateStr)")
         if central.state != .poweredOn {
             isScanning = false
         }
@@ -128,15 +148,21 @@ extension BLEManager: CBCentralManagerDelegate {
                         didDiscover peripheral: CBPeripheral,
                         advertisementData: [String: Any],
                         rssi RSSI: NSNumber) {
-        let name = peripheral.name ?? ""
+        let name = peripheral.name ?? advertisementData[CBAdvertisementDataLocalNameKey] as? String ?? ""
+        let serviceUUIDs = advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID] ?? []
+
+        log("FOUND: \"\(name)\" RSSI=\(RSSI) services=\(serviceUUIDs.map(\.uuidString))")
+
         guard name.hasPrefix("getmogged") else { return }
 
+        log("MATCHED: \"\(name)\" — adding to list")
         if !discoveredPeripherals.contains(where: { $0.identifier == peripheral.identifier }) {
             discoveredPeripherals.append(peripheral)
         }
     }
 
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
+        log("CONNECTED to \(peripheral.name ?? "unknown")")
         isConnected = true
         connectedDeviceName = peripheral.name
         peripheral.discoverServices([Self.serviceUUID])
@@ -148,6 +174,7 @@ extension BLEManager: CBCentralManagerDelegate {
     func centralManager(_ central: CBCentralManager,
                         didDisconnectPeripheral peripheral: CBPeripheral,
                         error: Error?) {
+        log("DISCONNECTED: \(error?.localizedDescription ?? "no error")")
         cleanupConnection()
 
         // Auto-reconnect after brief delay
@@ -159,6 +186,7 @@ extension BLEManager: CBCentralManagerDelegate {
     func centralManager(_ central: CBCentralManager,
                         didFailToConnect peripheral: CBPeripheral,
                         error: Error?) {
+        log("FAILED TO CONNECT: \(error?.localizedDescription ?? "unknown")")
         cleanupConnection()
     }
 }

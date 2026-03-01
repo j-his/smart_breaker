@@ -44,6 +44,8 @@ struct PairingView: View {
 
     // MARK: - Scanning View
 
+    @State private var showDebug = false
+
     private var scanningView: some View {
         VStack(spacing: 24) {
             Spacer()
@@ -71,6 +73,50 @@ struct PairingView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
+
+            // Debug status bar
+            HStack {
+                Circle()
+                    .fill(ble.bluetoothState == "poweredOn" ? Color.green : Color.red)
+                    .frame(width: 8, height: 8)
+                Text("BT: \(ble.bluetoothState)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("Found: \(ble.discoveredPeripherals.count)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Button(showDebug ? "Hide Log" : "Show Log") {
+                    showDebug.toggle()
+                }
+                .font(.caption2)
+            }
+            .padding(.horizontal)
+
+            if showDebug {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 2) {
+                            ForEach(Array(ble.debugLog.enumerated()), id: \.offset) { idx, entry in
+                                Text(entry)
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundStyle(.green)
+                                    .id(idx)
+                            }
+                        }
+                        .padding(8)
+                    }
+                    .frame(maxHeight: 150)
+                    .background(Color.black.opacity(0.9))
+                    .cornerRadius(8)
+                    .padding(.horizontal)
+                    .onChange(of: ble.debugLog.count) { _ in
+                        if let last = ble.debugLog.indices.last {
+                            proxy.scrollTo(last, anchor: .bottom)
+                        }
+                    }
+                }
+            }
 
             if ble.discoveredPeripherals.isEmpty && ble.isScanning {
                 ProgressView()
