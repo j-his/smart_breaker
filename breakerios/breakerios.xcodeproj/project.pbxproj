@@ -29,9 +29,22 @@
 		BB06A56E2F538BBE00C5287B /* breakeriosUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = breakeriosUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		BBCAECB32F54B055002E2C2E /* Exceptions for "breakerios" folder in "breakerios" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = BB06A5562F538BBD00C5287B /* breakerios */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		BB06A5592F538BBD00C5287B /* breakerios */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				BBCAECB32F54B055002E2C2E /* Exceptions for "breakerios" folder in "breakerios" target */,
+			);
 			path = breakerios;
 			sourceTree = "<group>";
 		};
@@ -400,6 +413,7 @@
 				DEVELOPMENT_TEAM = WF7R53VRB7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = breakerios/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Savebox;
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "connect to device";
 				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "connect to device";
@@ -413,7 +427,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.tongtonginc.breakerios;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tongtong.slopbox;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -435,6 +449,7 @@
 				DEVELOPMENT_TEAM = WF7R53VRB7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = breakerios/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Savebox;
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "connect to device";
 				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "connect to device";
@@ -448,7 +463,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.tongtonginc.breakerios;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tongtong.slopbox;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
