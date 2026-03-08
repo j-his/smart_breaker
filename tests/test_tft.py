@@ -47,11 +47,11 @@ def test_forward_pass_shapes():
 
 
 def test_parameter_count():
-    """CPU profile should have between 50K and 2M parameters."""
+    """Default profile should have between 50K and 10M parameters."""
     cfg = get_model_config()
     model = _make_model(cfg)
     n_params = sum(p.numel() for p in model.parameters())
-    assert 50_000 < n_params < 2_000_000, f"CPU params={n_params:,} out of range"
+    assert 50_000 < n_params < 10_000_000, f"params={n_params:,} out of range"
 
 
 def test_gpu_profile_builds():

@@ -315,7 +315,7 @@ class DeviceViewModel: ObservableObject {
             isConnected = dashboard.hardwareConnected
             loadingState = .loaded
         } catch {
-            loadDemoData()
+            isConnected = false
             loadingState = .loaded
         }
 
@@ -330,7 +330,7 @@ class DeviceViewModel: ObservableObject {
             gridSnapshot = dashboard.grid
             isConnected = dashboard.hardwareConnected
         } catch {
-            loadDemoData()
+            isConnected = false
         }
     }
 

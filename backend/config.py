@@ -26,7 +26,7 @@ SENSOR_PUSH_INTERVAL_S = 100  # hardware pushes every ~100 seconds (0.01 Hz)
 HARDWARE_TIMEOUT_S = 300  # fall back to mock after 5 min of no data
 
 # ── Model Profiles ───────────────────────────────────────────────────────────
-MODEL_PROFILE = os.getenv("MODEL_PROFILE", "cpu")  # "cpu" or "gpu"
+MODEL_PROFILE = os.getenv("MODEL_PROFILE", "gpu")  # "cpu" or "gpu"
 
 
 @dataclass(frozen=True)

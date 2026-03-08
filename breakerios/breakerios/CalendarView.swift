@@ -16,8 +16,9 @@ struct CalendarView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    // Optimization Summary
-                    if let optimization = viewModel.optimization {
+                    // Optimization Summary (only show when there are events)
+                    if let optimization = viewModel.optimization,
+                       !optimization.optimizedEvents.isEmpty {
                         OptimizationSummaryCard(result: optimization)
                             .padding(.horizontal)
                     }
@@ -447,9 +448,8 @@ class CalendarViewModel: ObservableObject {
             optimization = schedule
             loadingState = .loaded
         } catch {
-            let dashboard = DashboardResponse.demo
-            optimization = dashboard.optimization
-            forecast24h = .demo24h
+            optimization = nil
+            forecast24h = []
             loadingState = .loaded
         }
 
