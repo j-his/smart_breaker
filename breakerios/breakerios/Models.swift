@@ -23,6 +23,14 @@ struct GridSnapshot: Codable {
     let touPriceCentsKwh: Float
     let touPeriod: TOUPeriod
     let status: GridStatus
+
+    enum CodingKeys: String, CodingKey {
+        case renewablePct = "renewable_pct"
+        case carbonIntensityGco2Kwh = "carbon_intensity_gco2_kwh"
+        case touPriceCentsKwh = "tou_price_cents_kwh"
+        case touPeriod = "tou_period"
+        case status
+    }
 }
 
 struct GridHour: Codable {
@@ -32,6 +40,15 @@ struct GridHour: Codable {
     let touPriceCentsKwh: Float
     let touPeriod: TOUPeriod
     let status: GridStatus
+
+    enum CodingKeys: String, CodingKey {
+        case hour
+        case renewablePct = "renewable_pct"
+        case carbonIntensityGco2Kwh = "carbon_intensity_gco2_kwh"
+        case touPriceCentsKwh = "tou_price_cents_kwh"
+        case touPeriod = "tou_period"
+        case status
+    }
 }
 
 // MARK: - Channel & Sensor

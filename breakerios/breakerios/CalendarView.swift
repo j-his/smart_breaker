@@ -459,7 +459,7 @@ class CalendarViewModel: ObservableObject {
             forecastError = nil
         } catch {
             forecast24h = []
-            forecastError = "Forecast error: \(error.localizedDescription)"
+            forecastError = "Forecast error: \(String(describing: error))"
         }
 
         do {
