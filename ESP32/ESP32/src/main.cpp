@@ -200,6 +200,8 @@ Adafruit_SSD1306 displays[4] = {
   Adafruit_SSD1306(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET)
 };
 
+const uint8_t tcaMap[4] = {2, 0, 3, 1};
+
 void tcaSelect(uint8_t i) {
   if (i > 7) return;
   Wire.beginTransmission(TCAADDR);
@@ -292,7 +294,7 @@ void setup() {
   }
 
   for (uint8_t t=0; t<4; t++) {
-    tcaSelect(t);
+    tcaSelect(tcaMap[t]);
     // Address 0x3C for most 128x32 OLEDs
     if(!displays[t].begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
       Serial.print("SSD1306 allocation failed for screen ");
@@ -545,7 +547,7 @@ void loop() {
 
     // Update Screens
     for (uint8_t t = 0; t < 4; t++) {
-      tcaSelect(t);
+      tcaSelect(tcaMap[t]);
       displays[t].clearDisplay();
 
       String currentStr = String(Irms[t], 2) + "A";
