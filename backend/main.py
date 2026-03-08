@@ -6,8 +6,10 @@ import json
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
 
 from backend import config
 from backend.api.routes import api_router, _state
@@ -107,11 +109,24 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=config.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["Content-Security-Policy"] = "default-src 'self'"
+        return response
+
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 app.include_router(api_router)
 
@@ -119,8 +134,11 @@ app.include_router(api_router)
 # ── WebSocket Endpoints ──────────────────────────────────────────────────────
 
 @app.websocket("/ws/live")
-async def ws_live(websocket: WebSocket):
+async def ws_live(websocket: WebSocket, token: str = Query("")):
     """Real-time sensor and optimization data stream."""
+    if config.API_SECRET and token != config.API_SECRET:
+        await websocket.close(code=4003, reason="Forbidden")
+        return
     await ws_manager.connect(websocket)
     try:
         while True:
@@ -132,17 +150,21 @@ async def ws_live(websocket: WebSocket):
                     broadcast = await process_sensor_reading(reading, simulated=False)
                     await ws_manager.broadcast(make_envelope("sensor_update", broadcast))
             except (json.JSONDecodeError, KeyError, ValueError) as e:
+                logger.error("WebSocket /ws/live error: %s", e, exc_info=True)
                 await ws_manager.send_to(
                     websocket,
-                    make_envelope("error", {"message": str(e)}),
+                    make_envelope("error", {"message": "Invalid request format"}),
                 )
     except WebSocketDisconnect:
         await ws_manager.disconnect(websocket)
 
 
 @app.websocket("/ws/chat")
-async def ws_chat(websocket: WebSocket):
+async def ws_chat(websocket: WebSocket, token: str = Query("")):
     """LLM chat via Groq streaming with full context."""
+    if config.API_SECRET and token != config.API_SECRET:
+        await websocket.close(code=4003, reason="Forbidden")
+        return
     await ws_manager.connect(websocket)
     try:
         while True:

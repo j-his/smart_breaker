@@ -20,7 +20,7 @@ class TestNarrator:
             type="schedule_updated",
             data={
                 "optimized_events": [
-                    {"title": "Run Dryer", "optimized_start_hour": 2, "original_start_hour": 18},
+                    {"title": "Run Dryer", "optimized_start_hour": 2, "original_start_hour": 18, "was_moved": True},
                 ],
                 "total_savings_cents": 15.0,
                 "total_carbon_avoided_g": 200,

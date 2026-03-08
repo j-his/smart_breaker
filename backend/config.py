@@ -11,12 +11,8 @@ from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load keys.env from project root or parent directory
-_keys_env = BASE_DIR / "keys.env"
-if not _keys_env.exists():
-    _keys_env = BASE_DIR.parent / "keys.env"
-load_dotenv(_keys_env)
-load_dotenv()  # also load .env if present (lower priority — won't overwrite)
+# Load .env from project root only (do not search parent directories)
+load_dotenv(BASE_DIR / ".env")
 
 # ── Paths ────────────────────────────────────────────────────────────────────
 DATA_DIR = BASE_DIR / "data"
@@ -140,6 +136,14 @@ MONTE_CARLO_ITERATIONS = 100
 
 # ── Inference ────────────────────────────────────────────────────────────────
 INFERENCE_DEBOUNCE_S = 120  # run inference every 2 minutes
+
+# ── Security ────────────────────────────────────────────────────────────────
+API_SECRET = os.getenv("API_SECRET", "")
+CORS_ORIGINS = [
+    o.strip()
+    for o in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+    if o.strip()
+]
 
 # ── WebSocket ────────────────────────────────────────────────────────────────
 WS_HEARTBEAT_S = 30

@@ -1,11 +1,13 @@
 """REST API routes for the EnergyAI backend."""
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from backend.api.websocket import ws_manager, make_envelope
@@ -23,6 +25,19 @@ from backend.events import event_bus, SETTINGS_CHANGED, SCHEDULE_UPDATED
 from backend import config
 
 logger = logging.getLogger(__name__)
+
+_bearer = HTTPBearer(auto_error=False)
+
+
+async def verify_api_key(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+) -> None:
+    """Require a valid Bearer token when API_SECRET is configured."""
+    if not config.API_SECRET:
+        return  # auth disabled — open access
+    if credentials is None or credentials.credentials != config.API_SECRET:
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
+
 
 api_router = APIRouter(prefix="/api")
 
@@ -62,6 +77,7 @@ _state: dict = {
     "narration_enabled": True,
     "voice_id": config.ELEVENLABS_VOICE_ID,
 }
+_state_lock = asyncio.Lock()
 
 
 # ── Helper ───────────────────────────────────────────────────────────────────
@@ -115,7 +131,7 @@ async def health():
     }
 
 
-@api_router.get("/dashboard")
+@api_router.get("/dashboard", dependencies=[Depends(verify_api_key)])
 async def dashboard():
     grid = await grid_cache.get_current()
     watts = [0.0, 0.0, 0.0, 0.0]
@@ -138,18 +154,18 @@ async def dashboard():
     }
 
 
-@api_router.get("/forecast")
+@api_router.get("/forecast", dependencies=[Depends(verify_api_key)])
 async def forecast():
     grid_forecast = await grid_cache.get_forecast()
     return {"grid_forecast_24h": grid_forecast}
 
 
-@api_router.get("/schedule")
+@api_router.get("/schedule", dependencies=[Depends(verify_api_key)])
 async def schedule():
     return _state["last_optimization"] or _empty_optimization()
 
 
-@api_router.post("/tasks")
+@api_router.post("/tasks", dependencies=[Depends(verify_api_key)])
 async def add_task(task: TaskRequest):
     now = datetime.now(timezone.utc)
     start = now + timedelta(minutes=5)
@@ -171,7 +187,8 @@ async def add_task(task: TaskRequest):
         priority=task.priority,
     )
     _apply_appliance_defaults(event)
-    _state["calendar_events"].append(event)
+    async with _state_lock:
+        _state["calendar_events"].append(event)
 
     try:
         forecast = await grid_cache.get_forecast()
@@ -185,16 +202,24 @@ async def add_task(task: TaskRequest):
     return {"event_id": event.id, "message": "Task added and schedule re-optimized"}
 
 
-@api_router.post("/calendar/import")
+@api_router.post("/calendar/import", dependencies=[Depends(verify_api_key)])
 async def calendar_import(req: CalendarImportRequest):
     if req.ical_data:
-        events = parse_ical(req.ical_data)
+        if len(req.ical_data) > 500_000:
+            raise HTTPException(status_code=413, detail="Calendar data too large (500KB limit)")
+        try:
+            events = parse_ical(req.ical_data)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid iCal format")
     elif req.json_events:
+        if len(req.json_events) > 500:
+            raise HTTPException(status_code=413, detail="Too many events (500 limit)")
         events = parse_json_tasks(req.json_events)
     else:
         raise HTTPException(status_code=400, detail="Provide ical_data or json_events")
 
-    _state["calendar_events"].extend(events)
+    async with _state_lock:
+        _state["calendar_events"].extend(events)
 
     try:
         forecast = await grid_cache.get_forecast()
@@ -215,23 +240,24 @@ async def calendar_import(req: CalendarImportRequest):
     }
 
 
-@api_router.post("/sensor")
+@api_router.post("/sensor", dependencies=[Depends(verify_api_key)])
 async def sensor_ingest(reading: SensorReading):
     broadcast = await process_sensor_reading(reading, simulated=False)
     await ws_manager.broadcast(make_envelope("sensor_update", broadcast))
     return {"status": "ok"}
 
 
-@api_router.post("/settings")
+@api_router.post("/settings", dependencies=[Depends(verify_api_key)])
 async def update_settings(settings: SettingsRequest):
-    if settings.alpha is not None:
-        _state["alpha"] = settings.alpha
-    if settings.beta is not None:
-        _state["beta"] = settings.beta
-    if settings.narration_enabled is not None:
-        _state["narration_enabled"] = settings.narration_enabled
-    if settings.voice_id is not None:
-        _state["voice_id"] = settings.voice_id
+    async with _state_lock:
+        if settings.alpha is not None:
+            _state["alpha"] = settings.alpha
+        if settings.beta is not None:
+            _state["beta"] = settings.beta
+        if settings.narration_enabled is not None:
+            _state["narration_enabled"] = settings.narration_enabled
+        if settings.voice_id is not None:
+            _state["voice_id"] = settings.voice_id
 
     await event_bus.publish(SETTINGS_CHANGED, {
         "alpha": _state["alpha"],
@@ -248,7 +274,7 @@ async def update_settings(settings: SettingsRequest):
     }
 
 
-@api_router.get("/voices")
+@api_router.get("/voices", dependencies=[Depends(verify_api_key)])
 async def get_voices():
     """Return available TTS voices, with the current selection marked."""
     voices = [
@@ -266,12 +292,12 @@ async def get_voices():
     return {"voices": voices, "current_voice_id": _state["voice_id"]}
 
 
-@api_router.get("/insights")
+@api_router.get("/insights", dependencies=[Depends(verify_api_key)])
 async def get_insights():
     return {"insights": _state["insights"][-20:]}
 
 
-@api_router.get("/attention")
+@api_router.get("/attention", dependencies=[Depends(verify_api_key)])
 async def get_attention():
     try:
         from backend.ml.orchestrator import get_latest_result
@@ -287,7 +313,7 @@ async def get_attention():
     return {"attention_weights": [], "message": "No ML data yet"}
 
 
-@api_router.get("/calendar.ics")
+@api_router.get("/calendar.ics", dependencies=[Depends(verify_api_key)])
 async def calendar_ics():
     """Subscribable iCal feed of the optimized schedule.
 

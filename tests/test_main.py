@@ -56,7 +56,7 @@ class TestMainApp:
             resp = await client.options(
                 "/api/dashboard",
                 headers={
-                    "Origin": "http://192.168.1.100:3000",
+                    "Origin": "http://localhost:3000",
                     "Access-Control-Request-Method": "GET",
                 },
             )

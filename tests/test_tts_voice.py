@@ -45,7 +45,7 @@ class TestTTSVoice:
                 yield chunk
 
         mock_client = MagicMock()
-        mock_client.text_to_speech.convert = AsyncMock(return_value=mock_audio_iter())
+        mock_client.text_to_speech.convert = MagicMock(return_value=mock_audio_iter())
 
         with patch("backend.tts.voice.get_tts_client", return_value=mock_client), \
              patch("backend.tts.voice.config") as mock_config:
