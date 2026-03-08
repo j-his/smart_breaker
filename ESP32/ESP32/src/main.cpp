@@ -174,7 +174,7 @@ void postSensorData() {
   String json = "{\"device_id\":\"getmogged-pro-9000\",\"channels\":[";
   for (int i = 0; i < 4; i++) {
     if (i > 0) json += ",";
-    json += "{\"channel_id\":" + String(i) + ",\"current_amps\":" + String(lastIrms[i], 3) + "}";
+    json += "{\"channel_id\":" + String(i) + ",\"current_amps\":" + String(relayState[i] ? lastIrms[i] : 0.0, 3) + "}";
   }
   json += "]}";
 
