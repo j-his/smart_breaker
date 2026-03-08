@@ -18,6 +18,9 @@ data/*.ics
 data/calendars/
 data/energyai.db
 
+# PlatformIO
+firmware/.pio/
+
 # macOS
 .DS_Store
 **/.DS_Store
