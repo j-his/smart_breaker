@@ -267,7 +267,7 @@ void buttonTask(void *pvParameters) {
         if (reading != buttonState[i]) {
           buttonState[i] = reading;
 
-          if (buttonState[i] == LOW) {
+          if ((i == 0 && buttonState[i] == LOW) || i > 0) {
             relayState[i] = !relayState[i];
             digitalWrite(relayPins[i], relayState[i] ? HIGH : LOW);
 
