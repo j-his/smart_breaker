@@ -10,6 +10,7 @@
 #define BLACK 0x00
 #include "pic_home.h"        // Include the header file containing image data
 // #include "img/device_interface2.h" // Include the header file containing additional image data
+#include "boot.h"            // Boot screen bitmap
 
 #include <BLEDevice.h>
 #include <BLEServer.h>
@@ -388,6 +389,12 @@ void setup() {
   EPD_FastMode1Init();       // Initialize the EPD screen's fast mode 1
   EPD_Display_Clear();       // Clear the screen content
   EPD_Update();              // Update the screen display
+
+  // Display boot screen
+  EPD_ShowPicture(0, 0, 792, 272, gImage_boot, BLACK);
+  update_screen();
+  delay(3000);
+  Paint_Clear(WHITE);
 
   // Trigger first draw in loop()
   needEpdUpdate = true;
