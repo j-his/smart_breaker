@@ -29,13 +29,27 @@ struct CalendarView: View {
                             .fontWeight(.semibold)
                             .padding(.horizontal)
 
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 12) {
-                                ForEach(viewModel.forecast24h, id: \.hour) { forecast in
-                                    ForecastHourCard(forecast: forecast)
-                                }
+                        if viewModel.forecast24h.isEmpty {
+                            if let err = viewModel.forecastError {
+                                Text(err)
+                                    .font(.caption)
+                                    .foregroundStyle(.red)
+                                    .padding(.horizontal)
+                            } else {
+                                Text("Loading forecast...")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal)
                             }
-                            .padding(.horizontal)
+                        } else {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 12) {
+                                    ForEach(viewModel.forecast24h, id: \.hour) { forecast in
+                                        ForecastHourCard(forecast: forecast)
+                                    }
+                                }
+                                .padding(.horizontal)
+                            }
                         }
                     }
 
@@ -428,6 +442,7 @@ struct AddTaskView: View {
 class CalendarViewModel: ObservableObject {
     @Published var optimization: OptimizationResult?
     @Published var forecast24h: [GridHour] = []
+    @Published var forecastError: String?
     @Published var showingAddTask = false
     @Published var showingImport = false
     @Published var loadingState: LoadingState = .idle
@@ -441,8 +456,10 @@ class CalendarViewModel: ObservableObject {
         do {
             let forecast = try await APIClient.shared.getForecast()
             forecast24h = forecast.gridForecast24h
+            forecastError = nil
         } catch {
             forecast24h = []
+            forecastError = "Forecast error: \(error.localizedDescription)"
         }
 
         do {
