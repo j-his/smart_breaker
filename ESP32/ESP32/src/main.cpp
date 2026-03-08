@@ -1,6 +1,7 @@
 #include <Arduino.h>         // Include the core Arduino library to provide basic Arduino functionality
 #include <SPI.h>
 #include <Wire.h>
+#include <string.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include "EPD.h"             // Include the EPD library for controlling the electronic ink screen (E-Paper Display)
@@ -223,6 +224,11 @@ const float ADC_REF = 3.3;
 const int   ADC_MAX = 4095;
 
 uint8_t ImageBW[27200];      // Declare an array of 27200 bytes to store black and white image data
+uint8_t ImageBW_Prev[27200]; // Previous frame buffer for partial refresh comparison
+
+bool epdFirstUpdate = true;
+int  epdPartialCount = 0;
+const int EPD_FULL_REFRESH_EVERY = 10; // Full refresh every N partial updates to clear ghosting
 
 uint8_t ImageTest[27200];
 void clear_all();
@@ -233,6 +239,7 @@ uint8_t square2[4900];
 void display_image(uint8_t *image, int x, int y, int w, int h);
 void draw_image_to_buffer(uint8_t *image, int x, int y, int w, int h);
 void update_screen();
+void oledSynthwaveStartup();
 
 void buttonTask(void *pvParameters) {
   unsigned long comboHoldStart = 0;
@@ -393,7 +400,7 @@ void setup() {
   // Display boot screen
   EPD_ShowPicture(0, 0, 792, 272, gImage_boot, BLACK);
   update_screen();
-  delay(3000);
+  oledSynthwaveStartup(); // Synthwave animation runs for ~2.6s while EPD shows boot logo
   Paint_Clear(WHITE);
 
   // Trigger first draw in loop()
@@ -630,11 +637,139 @@ void draw_image_to_buffer(uint8_t *image, int x, int y, int w, int h) {
     }
 }
 
-// Full update using fast-mode LUT — always drives all pixels correctly
-// No old-vs-new buffer comparison needed, so toggling ON/OFF always works
+// Update screen using partial refresh where possible.
+// After deep sleep the display RAM is lost, so we must always re-send the
+// previous frame (ImageBW_Prev) into the OLD registers before the new frame.
+// EPD_PartUpdate (0xDC) then only drives pixels that differ — much faster.
+// A full EPD_Update (0xF7) is done on the first call and every
+// EPD_FULL_REFRESH_EVERY partial updates to prevent ghosting build-up.
 void update_screen() {
-    EPD_FastMode1Init();        // Load fast waveform LUT (includes HW reset)
-    EPD_Display(ImageBW);       // Write image to new frame registers
-    EPD_Update();               // Full waveform — drives every pixel to match buffer
+    EPD_FastMode1Init();        // HW reset (required after deep sleep) + temperature load
+
+    if (epdFirstUpdate || epdPartialCount >= EPD_FULL_REFRESH_EVERY) {
+        // Full waveform refresh — clears ghosting.
+        // EPD_Display_Clear primes old registers to all-black (0x00) so
+        // EPD_Update drives every pixel from a known black baseline to its
+        // target state, fully eliminating any ghost residue.
+        EPD_Display_Clear();        // old=0x00 (black), new=0xFF (white)
+        EPD_Display(ImageBW);       // overwrite new frame with actual content
+        EPD_Update();               // full waveform: all pixels black → target
+        epdFirstUpdate = false;
+        epdPartialCount = 0;
+    } else {
+        // Partial refresh — only re-drives changed pixels
+        EPD_DisplayOld(ImageBW_Prev);   // Tell controller what is currently shown
+        EPD_Display(ImageBW);           // Write the new frame
+        EPD_PartUpdate();               // Drive only changed pixels (fast)
+        epdPartialCount++;
+    }
+
+    memcpy(ImageBW_Prev, ImageBW, sizeof(ImageBW_Prev));  // Remember what we just showed
     EPD_DeepSleep();
+}
+
+// Synthwave startup animation across all 4 OLED screens.
+// The screens are treated as one continuous 512x32 display.
+//
+// Phase 1 (~1.3s): A 4px scan bar with a glow fringe sweeps left→right.
+// Phase 2 (~1.0s): A perspective grid materialises — horizontal lines appear
+//   bottom→horizon, then vertical convergence lines fan out from the vanishing
+//   point at the centre of the combined display.  Stars fade in above the horizon.
+// Phase 3 (~0.4s): Neon strobe pulses via invertDisplay.
+void oledSynthwaveStartup() {
+    const int W = 128, H = 32, N = 4;
+    const int TOTAL_W = W * N;  // 512 px
+    const int HORIZON_Y = 13;
+
+    // ---- Phase 1: Vertical scan bar sweeps across all four screens ----
+    // Core is 4 px wide; ±3 px fringe draws every-other-row for a glow effect.
+    for (int barX = -6; barX <= TOTAL_W + 6; barX += 4) {
+        for (int s = 0; s < N; s++) {
+            int sStart = s * W;
+            tcaSelect(tcaMap[s]);
+            displays[s].clearDisplay();
+            for (int dx = -3; dx < 7; dx++) {
+                int lx = (barX + dx) - sStart;
+                if (lx < 0 || lx >= W) continue;
+                if (dx >= 0 && dx < 4) {
+                    for (int y = 0; y < H; y++)
+                        displays[s].drawPixel(lx, y, SSD1306_WHITE);
+                } else {
+                    for (int y = 0; y < H; y += 2)
+                        displays[s].drawPixel(lx, y, SSD1306_WHITE);
+                }
+            }
+            displays[s].display();
+        }
+        delay(10);
+    }
+
+    // ---- Phase 2: Perspective grid materialises ----
+    // Horizontal lines compressed toward the horizon = depth illusion.
+    const int hGridY[6] = {31, 27, 23, 20, 17, 15};
+    const int nH = 6;
+
+    // Vertical lines converge to a single vanishing point at the midpoint of
+    // the combined display (global x=256, y=HORIZON_Y).
+    const int VP_GX   = TOTAL_W / 2;  // 256
+    const int vBotX[9] = {0, 64, 128, 192, 256, 320, 384, 448, 511};
+    const int nV = 9;
+    // Reveal from the centre line outward so it fans open symmetrically.
+    const int vRevealOrder[9] = {4, 3, 5, 2, 6, 1, 7, 0, 8};
+
+    // Stars: base x positions; each screen offsets by 31 px so the sky
+    // looks different across the four panels.
+    const int starBaseX[8] = {  5, 18, 35, 52, 68, 83, 100, 119};
+    const int starBaseY[8] = {  3,  8,  2,  6,  10,  4,   9,   1};
+
+    for (int step = 0; step < nV; step++) {
+        for (int s = 0; s < N; s++) {
+            int sStart = s * W;
+            tcaSelect(tcaMap[s]);
+            displays[s].clearDisplay();
+
+            // Horizon line — always present
+            displays[s].drawLine(0, HORIZON_Y, W - 1, HORIZON_Y, SSD1306_WHITE);
+
+            // Horizontal grid lines (revealed bottom → horizon, one per step)
+            for (int i = 0; i < nH && i <= step; i++)
+                displays[s].drawLine(0, hGridY[i], W - 1, hGridY[i], SSD1306_WHITE);
+
+            // Vertical convergence lines (centre-outward reveal).
+            // Coordinates are global; Adafruit GFX clips out-of-bounds pixels.
+            for (int vi = 0; vi <= step; vi++) {
+                int v  = vRevealOrder[vi];
+                displays[s].drawLine(VP_GX    - sStart, HORIZON_Y,
+                                     vBotX[v] - sStart, 31,
+                                     SSD1306_WHITE);
+            }
+
+            // Stars fade in above the horizon, staggered across steps
+            for (int i = 0; i < 8; i++) {
+                if (step > i / 2) {
+                    int sx = (starBaseX[i] + s * 31) % W;
+                    displays[s].drawPixel(sx, starBaseY[i], SSD1306_WHITE);
+                }
+            }
+
+            displays[s].display();
+        }
+        delay(100);
+    }
+
+    // ---- Phase 3: Neon strobe pulses ----
+    for (int flash = 0; flash < 4; flash++) {
+        bool inv = (flash % 2 == 0);
+        for (int s = 0; s < N; s++) {
+            tcaSelect(tcaMap[s]);
+            displays[s].invertDisplay(inv);
+        }
+        delay(inv ? 55 : 90);
+    }
+    // Leave display in normal (non-inverted) mode with grid still visible
+    for (int s = 0; s < N; s++) {
+        tcaSelect(tcaMap[s]);
+        displays[s].invertDisplay(false);
+    }
+    delay(150);
 }
