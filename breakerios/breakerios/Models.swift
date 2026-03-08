@@ -23,14 +23,6 @@ struct GridSnapshot: Codable {
     let touPriceCentsKwh: Float
     let touPeriod: TOUPeriod
     let status: GridStatus
-
-    enum CodingKeys: String, CodingKey {
-        case renewablePct = "renewable_pct"
-        case carbonIntensityGco2Kwh = "carbon_intensity_gco2_kwh"
-        case touPriceCentsKwh = "tou_price_cents_kwh"
-        case touPeriod = "tou_period"
-        case status
-    }
 }
 
 struct GridHour: Codable {
@@ -40,15 +32,6 @@ struct GridHour: Codable {
     let touPriceCentsKwh: Float
     let touPeriod: TOUPeriod
     let status: GridStatus
-
-    enum CodingKeys: String, CodingKey {
-        case hour
-        case renewablePct = "renewable_pct"
-        case carbonIntensityGco2Kwh = "carbon_intensity_gco2_kwh"
-        case touPriceCentsKwh = "tou_price_cents_kwh"
-        case touPeriod = "tou_period"
-        case status
-    }
 }
 
 // MARK: - Channel & Sensor
@@ -308,7 +291,7 @@ struct SensorUpdateData: Codable {
 
 struct GridStatusUpdate: Codable {
     let current: GridSnapshot
-    let forecastNext3h: [GridHour]
+    let forecastNext3H: [GridHour]
 }
 
 struct AnomalyAlert: Codable, Identifiable {
@@ -360,11 +343,7 @@ struct HealthResponse: Codable {
 }
 
 struct ForecastResponse: Codable {
-    let gridForecast24h: [GridHour]
-
-    enum CodingKeys: String, CodingKey {
-        case gridForecast24h = "grid_forecast_24h"
-    }
+    let gridForecast24H: [GridHour]
 }
 
 struct TaskRequest: Codable {
@@ -387,12 +366,6 @@ struct SettingsRequest: Codable {
     let beta: Double?
     let narrationEnabled: Bool?
     let voiceId: String?
-
-    enum CodingKeys: String, CodingKey {
-        case alpha, beta
-        case narrationEnabled = "narration_enabled"
-        case voiceId = "voice_id"
-    }
 }
 
 struct SettingsResponse: Codable {
@@ -400,12 +373,6 @@ struct SettingsResponse: Codable {
     let beta: Double
     let narrationEnabled: Bool?
     let voiceId: String?
-
-    enum CodingKeys: String, CodingKey {
-        case alpha, beta
-        case narrationEnabled = "narration_enabled"
-        case voiceId = "voice_id"
-    }
 }
 
 struct VoiceOption: Codable, Identifiable {
@@ -418,11 +385,6 @@ struct VoiceOption: Codable, Identifiable {
 struct VoicesResponse: Codable {
     let voices: [VoiceOption]
     let currentVoiceId: String
-
-    enum CodingKeys: String, CodingKey {
-        case voices
-        case currentVoiceId = "current_voice_id"
-    }
 }
 
 struct InsightsResponse: Codable {

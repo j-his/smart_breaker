@@ -112,9 +112,9 @@ struct ForecastResponseTests {
         """.data(using: .utf8)!
 
         let forecast = try decoder.decode(ForecastResponse.self, from: json)
-        #expect(forecast.gridForecast24h.count == 24)
-        #expect(forecast.gridForecast24h[0].hour == 0)
-        #expect(forecast.gridForecast24h[23].hour == 23)
+        #expect(forecast.gridForecast24H.count == 24)
+        #expect(forecast.gridForecast24H[0].hour == 0)
+        #expect(forecast.gridForecast24H[23].hour == 23)
     }
 }
 
@@ -318,7 +318,7 @@ struct WebSocketEnvelopeTests {
         let envelope = try decoder.decode(WSTypedEnvelope<GridStatusUpdate>.self, from: json)
         #expect(envelope.data.current.status == .green)
         #expect(envelope.data.current.touPeriod == .superOffPeak)
-        #expect(envelope.data.forecastNext3h.count == 3)
+        #expect(envelope.data.forecastNext3H.count == 3)
     }
 
     @Test func decodesAnomalyAlertEnvelope() throws {

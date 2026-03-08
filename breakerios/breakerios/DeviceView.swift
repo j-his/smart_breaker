@@ -110,6 +110,9 @@ struct DeviceView: View {
         .task {
             await viewModel.startMonitoring()
         }
+        .onAppear {
+            Task { await viewModel.refresh() }
+        }
     }
 
     private var powerGradientColors: [Color] {
@@ -314,12 +317,11 @@ class DeviceViewModel: ObservableObject {
             totalWatts = dashboard.currentPower.totalWatts
             gridSnapshot = dashboard.grid
             isConnected = dashboard.hardwareConnected
-            loadingState = .loaded
         } catch {
-            loadDemoData()
-            loadingState = .loaded
+            isConnected = false
         }
 
+        loadingState = .loaded
         subscribeToWebSocket()
     }
 
@@ -331,7 +333,7 @@ class DeviceViewModel: ObservableObject {
             gridSnapshot = dashboard.grid
             isConnected = dashboard.hardwareConnected
         } catch {
-            loadDemoData()
+            // Keep existing data
         }
     }
 

@@ -123,6 +123,9 @@ struct CalendarView: View {
         .task {
             await viewModel.loadData()
         }
+        .onAppear {
+            Task { await viewModel.loadData() }
+        }
     }
 }
 
@@ -455,7 +458,7 @@ class CalendarViewModel: ObservableObject {
         // Load forecast and schedule independently so one failure doesn't block the other
         do {
             let forecast = try await APIClient.shared.getForecast()
-            forecast24h = forecast.gridForecast24h
+            forecast24h = forecast.gridForecast24H
             forecastError = nil
         } catch {
             forecast24h = []
