@@ -289,6 +289,7 @@ struct GridStatusCard: View {
     }
 }
 
+@MainActor
 class DeviceViewModel: ObservableObject {
     @Published var channels: [LiveChannel] = []
     @Published var totalWatts: Float = 0

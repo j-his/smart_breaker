@@ -424,6 +424,7 @@ struct AddTaskView: View {
     }
 }
 
+@MainActor
 class CalendarViewModel: ObservableObject {
     @Published var optimization: OptimizationResult?
     @Published var forecast24h: [GridHour] = []
@@ -436,23 +437,22 @@ class CalendarViewModel: ObservableObject {
     func loadData() async {
         loadingState = .loading
 
+        // Load forecast and schedule independently so one failure doesn't block the other
         do {
-            async let forecastResult = APIClient.shared.getForecast()
-            async let scheduleResult = APIClient.shared.getSchedule()
-
-            let forecast = try await forecastResult
-            let schedule = try await scheduleResult
-
+            let forecast = try await APIClient.shared.getForecast()
             forecast24h = forecast.gridForecast24h
-            optimization = schedule
-            loadingState = .loaded
         } catch {
-            let dashboard = DashboardResponse.demo
-            optimization = dashboard.optimization
-            forecast24h = .demo24h
-            loadingState = .loaded
+            forecast24h = []
         }
 
+        do {
+            let schedule = try await APIClient.shared.getSchedule()
+            optimization = schedule
+        } catch {
+            optimization = nil
+        }
+
+        loadingState = .loaded
         subscribeToWebSocket()
     }
 
