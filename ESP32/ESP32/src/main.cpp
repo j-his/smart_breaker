@@ -54,9 +54,9 @@ void connectToWiFi();
 void postSensorData();
 
 // --------- Pin Configuration ----------
-const int ctPins[4] = {8, 14, 16, 18};
+const int ctPins[4] = {8, 18, 14, 16};
 const int buttonPins[4] = {6, 1, 4, 2};
-const int relayPins[4] = {15, 17, 19, 21};
+const int relayPins[4] = {17, 21, 19, 15};
 
 // --------- Button & Relay State ----------
 volatile bool relayState[4] = {false, false, false, false};
