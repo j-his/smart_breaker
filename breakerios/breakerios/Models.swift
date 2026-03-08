@@ -344,6 +344,10 @@ struct HealthResponse: Codable {
 
 struct ForecastResponse: Codable {
     let gridForecast24h: [GridHour]
+
+    enum CodingKeys: String, CodingKey {
+        case gridForecast24h = "grid_forecast_24h"
+    }
 }
 
 struct TaskRequest: Codable {
