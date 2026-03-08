@@ -54,7 +54,7 @@ void postSensorData();
 
 // --------- Pin Configuration ----------
 const int ctPins[4] = {8, 14, 16, 18};
-const int buttonPins[4] = {1, 2, 4, 6};
+const int buttonPins[4] = {6, 1, 4, 2};
 const int relayPins[4] = {15, 17, 19, 21};
 
 // --------- Button & Relay State ----------
@@ -527,7 +527,7 @@ void loop() {
       double Vrms = sqrt(sum[ch] / samples);
 
       // Convert voltage to primary current
-      Irms[ch] = ((Vrms / BURDEN) * TURNS)-2.97;
+      Irms[ch] = ((Vrms / BURDEN) * TURNS)-2.75;
 
       // Clamp negative readings to zero
       if (Irms[ch] < 0) Irms[ch] = 0;
