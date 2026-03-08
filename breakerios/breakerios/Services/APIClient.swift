@@ -26,6 +26,13 @@ class APIClient {
         return e
     }()
 
+    /// URLSession configured to bypass proxies for local/direct connections
+    private let session: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.connectionProxyDictionary = [:]  // bypass all proxies
+        return URLSession(configuration: config)
+    }()
+
     private init() {}
 
     // MARK: - Generic Request Methods
@@ -38,7 +45,7 @@ class APIClient {
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await URLSession.shared.data(from: url)
+            (data, response) = try await session.data(from: url)
         } catch {
             throw APIError.networkError(error)
         }
@@ -73,7 +80,7 @@ class APIClient {
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await URLSession.shared.data(for: request)
+            (data, response) = try await session.data(for: request)
         } catch {
             throw APIError.networkError(error)
         }

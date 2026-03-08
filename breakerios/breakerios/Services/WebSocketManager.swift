@@ -42,7 +42,9 @@ class WebSocketManager: ObservableObject {
 
         guard let url = URL(string: base + "/ws/live") else { return }
 
-        let session = URLSession(configuration: .default)
+        let config = URLSessionConfiguration.default
+        config.connectionProxyDictionary = [:]  // bypass proxies for local server
+        let session = URLSession(configuration: config)
         webSocketTask = session.webSocketTask(with: url)
         webSocketTask?.resume()
         isConnected = true
