@@ -291,6 +291,14 @@ void buttonTask(void *pvParameters) {
   }
 }
 
+// Runs EPD boot display on core 0 so the OLED animation can run simultaneously on core 1.
+static volatile bool epdBootDone = false;
+void epdBootTask(void *pvParameters) {
+    update_screen();
+    epdBootDone = true;
+    vTaskDelete(NULL);
+}
+
 void setup() {
   Serial.begin(9600);
   Wire.begin(3, 9); // Initialize I2C with SDA=3, SCL=9 for the TCA9548A multiplexer
@@ -310,10 +318,6 @@ void setup() {
     } else {
       displays[t].clearDisplay();
       displays[t].setTextColor(SSD1306_WHITE);
-      displays[t].setTextSize(2);
-      displays[t].setCursor(0, 0);
-      displays[t].print("Screen ");
-      displays[t].println(t + 1);
       displays[t].display();
     }
   }
@@ -397,10 +401,13 @@ void setup() {
   EPD_Display_Clear();       // Clear the screen content
   EPD_Update();              // Update the screen display
 
-  // Display boot screen
+  // Display boot screen on EPD, then kick it off on core 0 so the
+  // OLED animation can run at the same time on core 1 (this thread).
   EPD_ShowPicture(0, 0, 792, 272, gImage_boot, BLACK);
-  update_screen();
-  oledSynthwaveStartup(); // Synthwave animation runs for ~2.6s while EPD shows boot logo
+  epdBootDone = false;
+  xTaskCreatePinnedToCore(epdBootTask, "EPDBootTask", 8192, NULL, 1, NULL, 0);
+  oledSynthwaveStartup();
+  while (!epdBootDone) { delay(5); }  // Wait for EPD to finish before clearing buffer
   Paint_Clear(WHITE);
 
   // Trigger first draw in loop()
@@ -683,7 +690,7 @@ void oledSynthwaveStartup() {
 
     // ---- Phase 1: Vertical scan bar sweeps across all four screens ----
     // Core is 4 px wide; ±3 px fringe draws every-other-row for a glow effect.
-    for (int barX = -6; barX <= TOTAL_W + 6; barX += 4) {
+    for (int barX = -6; barX <= TOTAL_W + 6; barX += 8) {
         for (int s = 0; s < N; s++) {
             int sStart = s * W;
             tcaSelect(tcaMap[s]);
@@ -701,7 +708,7 @@ void oledSynthwaveStartup() {
             }
             displays[s].display();
         }
-        delay(10);
+        delay(4);
     }
 
     // ---- Phase 2: Perspective grid materialises ----
