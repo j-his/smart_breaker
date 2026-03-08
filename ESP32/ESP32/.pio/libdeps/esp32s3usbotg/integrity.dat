@@ -1,0 +1,5 @@
+SPI
+adafruit/Adafruit BusIO @ ^1.15.0
+adafruit/Adafruit SSD1306 @ ^2.5.9
+adafruit/Adafruit GFX Library @ ^1.11.9
+Wire
