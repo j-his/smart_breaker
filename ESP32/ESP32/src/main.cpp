@@ -557,7 +557,7 @@ void loop() {
       tcaSelect(tcaMap[t]);
       displays[t].clearDisplay();
 
-      String currentStr = String(Irms[t], 2) + "A";
+      String currentStr = relayState[t] ? String(Irms[t], 2) + "A" : "0.00A";
 
       displays[t].setTextSize(3);
 
