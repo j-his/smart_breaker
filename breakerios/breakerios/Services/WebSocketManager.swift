@@ -8,6 +8,7 @@
 import Foundation
 import Combine
 
+@MainActor
 class WebSocketManager: ObservableObject {
     static let shared = WebSocketManager()
 
@@ -59,8 +60,8 @@ class WebSocketManager: ObservableObject {
 
     private func receiveMessage() {
         webSocketTask?.receive { [weak self] result in
+            guard let self else { return }
             Task { @MainActor in
-                guard let self else { return }
                 switch result {
                 case .success(let message):
                     switch message {
@@ -74,11 +75,15 @@ class WebSocketManager: ObservableObject {
                     }
                     self.receiveMessage()
                 case .failure:
-                    self.isConnected = false
-                    self.reconnect()
+                    self.handleConnectionFailure()
                 }
             }
         }
+    }
+    
+    private func handleConnectionFailure() {
+        isConnected = false
+        reconnect()
     }
 
     // MARK: - Message Routing

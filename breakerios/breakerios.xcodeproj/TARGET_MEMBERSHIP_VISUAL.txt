@@ -1,0 +1,223 @@
+```
+═══════════════════════════════════════════════════════════════════════
+                    TARGET MEMBERSHIP VISUAL GUIDE
+═══════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                         YOUR PROJECT FILES                          │
+└─────────────────────────────────────────────────────────────────────┘
+                                   │
+            ┌──────────────────────┼──────────────────────┐
+            │                      │                      │
+            ▼                      ▼                      ▼
+
+
+┏━━━━━━━━━━━━━━━━━━┓    ┏━━━━━━━━━━━━━━━━━━┓    ┏━━━━━━━━━━━━━━━━━━┓
+┃   iOS TARGET     ┃    ┃  SHARED FILES    ┃    ┃  visionOS TARGET ┃
+┃   ONLY           ┃    ┃  (BOTH TARGETS)  ┃    ┃   ONLY           ┃
+┗━━━━━━━━━━━━━━━━━━┛    ┗━━━━━━━━━━━━━━━━━━┛    ┗━━━━━━━━━━━━━━━━━━┛
+
+📱 iOS              🔄 Shared             🥽 visionOS
+─────────────────   ───────────────────   ─────────────────────────
+breakeriosApp       Models.swift          breakervisionOSApp.swift
+└─ @main            ├─ LiveChannel        └─ @main
+                    ├─ GridSnapshot                
+ContentView.swift   └─ DashboardResponse  ContentViewVision.swift
+└─ TabView                                └─ NavigationSplitView
+                    DeviceViewModel.swift          
+DeviceView.swift    └─ @Published         DeviceViewVision.swift
+└─ Single column    └─ Combine            └─ Grid layout
+                                          └─ Glass effects
+PairingView.swift   APIClient.swift                
+└─ iOS style        └─ async/await        DeviceVisualization...
+                                          └─ RealityKit 3D
+                    WebSocketManager      
+                    └─ Live updates       PairingViewVision.swift
+                                          └─ visionOS style
+                    ChatWebSocketManager  
+                                          View+GlassEffect.swift
+                    BLEManager.swift      └─ Material helper
+                    └─ CoreBluetooth      
+                    
+                    TTSPlayer.swift       
+                    └─ AVFoundation       
+                    
+                    CalendarView.swift    
+                    InsightsView.swift    
+                    SettingsView.swift    
+                    ChatView.swift        
+                    AboutView.swift       
+
+
+═══════════════════════════════════════════════════════════════════════
+                      HOW TO FIX YOUR ERROR
+═══════════════════════════════════════════════════════════════════════
+
+❌ CURRENT STATE (BROKEN):
+┌──────────────────────────────────────────────────────────────────┐
+│  iOS Target                                                      │
+│  ├─ breakeriosApp.swift (@main)        ← @main conflict!        │
+│  └─ breakervisionOSApp.swift (@main)   ← @main conflict!        │
+└──────────────────────────────────────────────────────────────────┘
+
+✅ FIXED STATE:
+┌──────────────────────────────────────────────────────────────────┐
+│  iOS Target                                                      │
+│  └─ breakeriosApp.swift (@main)        ← Only this one!         │
+└──────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────┐
+│  visionOS Target                                                 │
+│  └─ breakervisionOSApp.swift (@main)   ← Only this one!         │
+└──────────────────────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════
+                    FILE INSPECTOR SCREENSHOT
+═══════════════════════════════════════════════════════════════════════
+
+For breakeriosApp.swift:
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ 📄 File Inspector           ┃
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
+┃ Identity and Type           ┃
+┃   Name: breakeriosApp.swift ┃
+┃   Type: Swift Source        ┃
+┃                             ┃
+┃ Target Membership           ┃ ← LOOK HERE!
+┃   ☑️ breakerios            ┃ ← CHECK THIS
+┃   ☐ breaker visionOS       ┃ ← UNCHECK THIS
+┃   ☐ breakeriosTests        ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+
+For breakervisionOSApp.swift:
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ 📄 File Inspector                 ┃
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
+┃ Identity and Type                 ┃
+┃   Name: breakervisionOSApp.swift  ┃
+┃   Type: Swift Source              ┃
+┃                                   ┃
+┃ Target Membership                 ┃ ← LOOK HERE!
+┃   ☐ breakerios                   ┃ ← UNCHECK THIS
+┃   ☑️ breaker visionOS            ┃ ← CHECK THIS
+┃   ☐ breakeriosTests              ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+
+For Models.swift (Shared):
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ 📄 File Inspector           ┃
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
+┃ Identity and Type           ┃
+┃   Name: Models.swift        ┃
+┃   Type: Swift Source        ┃
+┃                             ┃
+┃ Target Membership           ┃ ← LOOK HERE!
+┃   ☑️ breakerios            ┃ ← CHECK THIS
+┃   ☑️ breaker visionOS      ┃ ← CHECK THIS TOO!
+┃   ☐ breakeriosTests        ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+
+═══════════════════════════════════════════════════════════════════════
+                        BUILD CONFIGURATION
+═══════════════════════════════════════════════════════════════════════
+
+iOS Target → Build Phases → Compile Sources
+┌────────────────────────────────────────────────────────┐
+│ ✅ breakeriosApp.swift                                 │
+│ ✅ ContentView.swift                                   │
+│ ✅ DeviceView.swift                                    │
+│ ✅ PairingView.swift                                   │
+│ ✅ Models.swift               ← Shared                │
+│ ✅ DeviceViewModel.swift      ← Shared                │
+│ ✅ APIClient.swift            ← Shared                │
+│ ✅ WebSocketManager.swift     ← Shared                │
+│ ✅ BLEManager.swift           ← Shared                │
+│ ✅ TTSPlayer.swift            ← Shared                │
+│ ✅ CalendarView.swift         ← Shared                │
+│ ✅ InsightsView.swift         ← Shared                │
+│ ✅ SettingsView.swift         ← Shared                │
+│ ✅ ChatView.swift             ← Shared                │
+│                                                        │
+│ ❌ NO visionOS-specific files here!                   │
+└────────────────────────────────────────────────────────┘
+
+visionOS Target → Build Phases → Compile Sources
+┌────────────────────────────────────────────────────────┐
+│ ✅ breakervisionOSApp.swift                            │
+│ ✅ ContentViewVision.swift                             │
+│ ✅ DeviceViewVision.swift                              │
+│ ✅ DeviceVisualizationImmersiveView.swift              │
+│ ✅ PairingViewVision.swift                             │
+│ ✅ View+GlassEffect.swift                              │
+│ ✅ Models.swift               ← Shared                │
+│ ✅ DeviceViewModel.swift      ← Shared                │
+│ ✅ APIClient.swift            ← Shared                │
+│ ✅ WebSocketManager.swift     ← Shared                │
+│ ✅ BLEManager.swift           ← Shared                │
+│ ✅ TTSPlayer.swift            ← Shared                │
+│ ✅ CalendarView.swift         ← Shared                │
+│ ✅ InsightsView.swift         ← Shared                │
+│ ✅ SettingsView.swift         ← Shared                │
+│ ✅ ChatView.swift             ← Shared                │
+│                                                        │
+│ ❌ NO iOS-specific files here!                        │
+└────────────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════
+                          QUICK CHECKLIST
+═══════════════════════════════════════════════════════════════════════
+
+□ Step 1: Select breakeriosApp.swift in Xcode
+□ Step 2: Press ⌥⌘1 to open File Inspector
+□ Step 3: Find "Target Membership" section
+□ Step 4: Check iOS target, Uncheck visionOS target
+□ Step 5: Select breakervisionOSApp.swift
+□ Step 6: Check visionOS target, Uncheck iOS target
+□ Step 7: Press ⌘B to build iOS target → Should succeed ✅
+□ Step 8: Switch to visionOS simulator
+□ Step 9: Press ⌘B to build visionOS target → Should succeed ✅
+□ Step 10: No more @main error! 🎉
+
+
+═══════════════════════════════════════════════════════════════════════
+                           SUMMARY
+═══════════════════════════════════════════════════════════════════════
+
+THE RULE:
+┌──────────────────────────────────────────────────────────────┐
+│  Each target can have ONLY ONE file with @main              │
+│                                                              │
+│  ✅ iOS target → breakeriosApp.swift                        │
+│  ✅ visionOS target → breakervisionOSApp.swift              │
+│  ❌ Both targets → BOTH files = ERROR                       │
+└──────────────────────────────────────────────────────────────┘
+
+THE FIX:
+┌──────────────────────────────────────────────────────────────┐
+│  Use File Inspector to set correct target membership        │
+│                                                              │
+│  Platform-specific files → ONE target only                  │
+│  Shared files → BOTH targets                                │
+└──────────────────────────────────────────────────────────────┘
+
+THE RESULT:
+┌──────────────────────────────────────────────────────────────┐
+│  ✅ iOS app builds and runs                                 │
+│  ✅ visionOS app builds and runs                            │
+│  ✅ Both share common code                                  │
+│  ✅ No conflicts                                            │
+│  ✅ One codebase, two platforms                             │
+└──────────────────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════
+
+That's it! Fix target membership and you're done. 🚀
+
+═══════════════════════════════════════════════════════════════════════
+```

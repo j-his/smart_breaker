@@ -44,7 +44,12 @@ struct ContentView: View {
                     .foregroundStyle(.white.opacity(0.9))
                     .frame(width: 56, height: 56)
             }
+            #if !os(visionOS)
             .glassEffect(.regular.tint(.blue.opacity(0.15)).interactive(), in: .circle)
+            #else
+            .background(.regularMaterial, in: .circle)
+            .hoverEffect()
+            #endif
             .padding(.trailing, 20)
             .padding(.bottom, 80)
         }

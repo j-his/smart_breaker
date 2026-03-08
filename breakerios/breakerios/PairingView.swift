@@ -13,6 +13,7 @@ struct PairingView: View {
     @State private var step: PairingStep = .scanning
     @State private var ssid = ""
     @State private var password = ""
+    @State private var showSkipAlert = false
     @Binding var isPaired: Bool
 
     enum PairingStep {
@@ -31,6 +32,13 @@ struct PairingView: View {
             }
             .navigationTitle("Set Up Device")
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Skip") {
+                        showSkipAlert = true
+                    }
+                    .foregroundStyle(.secondary)
+                }
+                
                 ToolbarItem(placement: .navigationBarTrailing) {
                     NavigationLink {
                         AboutView()
@@ -38,6 +46,14 @@ struct PairingView: View {
                         Image(systemName: "info.circle")
                     }
                 }
+            }
+            .alert("Skip Device Setup?", isPresented: $showSkipAlert) {
+                Button("Cancel", role: .cancel) { }
+                Button("Skip", role: .destructive) {
+                    skipSetup()
+                }
+            } message: {
+                Text("You can set up your SaveBox device later in Settings. The app will work without a physical device, but real-time energy monitoring won't be available.")
             }
         }
     }
@@ -228,5 +244,11 @@ struct PairingView: View {
 
             Spacer()
         }
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func skipSetup() {
+        isPaired = true
     }
 }
